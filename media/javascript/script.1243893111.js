@@ -1,1 +1,0 @@
-$(function(){$('img:visible').hide();setTimeout(function() {$('img:hidden').fadeIn("slow");}, 2*1000);});
