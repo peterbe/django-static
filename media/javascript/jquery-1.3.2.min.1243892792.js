@@ -1,0 +1,1 @@
+/home/peterbe/dev/DJANGO/django-static/media/javascript/jquery-1.3.2.min.js

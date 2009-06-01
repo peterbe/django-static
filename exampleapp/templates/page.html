@@ -1,0 +1,58 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+{% load django_static %}
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+  <head>
+    <meta http-equiv="content-type" content="text/html;charset=UTF-8" />
+    <title>Test page</title>
+    <link rel="stylesheet" href="{% slimfile "/css/styles.css" %}" type="text/css" media="all" />
+    <style type="text/css">
+    {% slimcontent "css" %}
+    h1,
+    h2,
+    h3 { font-face:'Trebuchet MS', Verdana, Arial'; }
+    {% endslimcontent %}
+    </style>
+  </head>
+  <body>
+    <div id="content">
+  
+    <h1>Test page</h1>
+    
+    <a href="http://www.peterbe.com/">
+      <img src="{% staticfile "/images/peterbe.jpg" %}" alt="Proud author Peterbe" border="0" />
+    </a>
+    
+    <h3>Benefits of django-static</h3>
+    <ul>
+    
+      <li>
+        <a href="http://pypi.python.org/pypi/slimmer/">Uses slimmer</a>
+      </li>
+      
+      <li>Full control over your static serving</li>
+      
+      <li>Rewrites urls in .css files for static serving</li>
+      
+      <li>Uses symbolic links to make it easy to set up aggressive caching in fronting web server (e.g. nginx)</li>
+      
+    </ul>
+    
+    
+    </div>
+  
+  <script type="text/javascript" src="{% staticfile "/javascript/jquery-1.3.2.min.js" %}"></script>
+  <script type="text/javascript" src="{% slimfile "/javascript/script.js" %}"></script>
+  <script type="text/javascript">
+  {% slimcontent "js" %}
+  /* Example of inline Javascript */
+  var a = "A";
+  var adder = function add(a, b) {
+    // pointless but proves the point
+    return a + b;
+  }
+  
+  {% endslimcontent %}
+  </script>
+  </body>
+</html>
