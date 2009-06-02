@@ -54,7 +54,35 @@ The three template tags it enables are the following:
    
         <style type="text/css">
         h1,h2,h3{font-face:'Trebuchet MS',Verdana,Arial}
-	</style>
+        </style>
+	
+	
+Configuration
+-------------
+
+`django_static` will be disabled by default. It's not until you set
+`DJANGO_STATIC = True` in your settings module that it actually starts
+to work for you. 
+
+By default, when `django_static` slims files or makes symlinks with
+timestamps in the filename, it does this into the same directory as
+where the original file is. If you don't like that you can override
+the save location by setting
+`DJANGO_STATIC_SAVE_PREFIX=/tmp/django-static`
+
+If you, for the sake of setting up your nginx/varnish/apache2, want
+change the name the files get you can set
+`DJANGO_STATIC_NAME_PREFIX=/cache-forever` as this will make it easier
+to write a rewrite rule/regular expression that in
+nginx/varnish/apache2 deliberately sets extra aggressive caching. 
+
+	
+How to hook this up with nginx
+------------------------------
+
+xxx
+
+
 	       
 	
    

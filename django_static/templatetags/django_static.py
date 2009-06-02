@@ -135,23 +135,23 @@ def _static_file_timed(filename,
     
     from settings import MEDIA_ROOT, DEBUG
     try:
-        from settings import DJANGO_SLIMMER
-        if not DJANGO_SLIMMER:
+        from settings import DJANGO_STATIC
+        if not DJANGO_STATIC:
             return filename
     except ImportError:
         return filename
     
     try:
-        from settings import DJANGO_SLIMMER_SAVE_PREFIX
+        from settings import DJANGO_STATIC_SAVE_PREFIX
     except ImportError:
-        DJANGO_SLIMMER_SAVE_PREFIX = ''
+        DJANGO_STATIC_SAVE_PREFIX = ''
         
     try:
-        from settings import DJANGO_SLIMMER_NAME_PREFIX
+        from settings import DJANGO_STATIC_NAME_PREFIX
     except ImportError:
-        DJANGO_SLIMMER_NAME_PREFIX = ''
+        DJANGO_STATIC_NAME_PREFIX = ''
         
-    PREFIX = DJANGO_SLIMMER_SAVE_PREFIX and DJANGO_SLIMMER_SAVE_PREFIX or MEDIA_ROOT
+    PREFIX = DJANGO_STATIC_SAVE_PREFIX and DJANGO_STATIC_SAVE_PREFIX or MEDIA_ROOT
 
     new_filename, m_time = _FILE_MAP.get(filename, (None, None))
     
@@ -198,11 +198,11 @@ def _static_file_timed(filename,
                                 '.%s' % new_m_time,
                                 apart[1]])
             
-            #new_filename = DJANGO_SLIMMER_NAME_PREFIX + new_filename
+            #new_filename = DJANGO_STATIC_NAME_PREFIX + new_filename
             
-            _FILE_MAP[filename] = (DJANGO_SLIMMER_NAME_PREFIX + new_filename, new_m_time)
+            _FILE_MAP[filename] = (DJANGO_STATIC_NAME_PREFIX + new_filename, new_m_time)
             if old_new_filename:
-                os.remove(_filename2filepath(old_new_filename.replace(DJANGO_SLIMMER_NAME_PREFIX, ''),
+                os.remove(_filename2filepath(old_new_filename.replace(DJANGO_STATIC_NAME_PREFIX, ''),
                                              PREFIX))
 
     new_filepath = _filename2filepath(new_filename, PREFIX)
@@ -251,7 +251,7 @@ def _static_file_timed(filename,
         #print "** STORING:", new_filepath
         open(new_filepath, 'w').write(content)
                             
-    return DJANGO_SLIMMER_NAME_PREFIX + new_filename
+    return DJANGO_STATIC_NAME_PREFIX + new_filename
 
 
 def _mkdir(newdir):

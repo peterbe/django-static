@@ -65,9 +65,9 @@ class Test__django_slimmer(TestCase):
         TEST_SAVE_PREFIX = '/tmp/infinity'
         TEST_FILENAME = '/test.js'
         
-        settings.DJANGO_SLIMMER = True
-        settings.DJANGO_SLIMMER_SAVE_PREFIX = TEST_SAVE_PREFIX
-        settings.DJANGO_SLIMMER_NAME_PREFIX = ''
+        settings.DJANGO_STATIC = True
+        settings.DJANGO_STATIC_SAVE_PREFIX = TEST_SAVE_PREFIX
+        settings.DJANGO_STATIC_NAME_PREFIX = ''
         settings.MEDIA_ROOT = TEST_MEDIA_ROOT
         
         open(TEST_MEDIA_ROOT + TEST_FILENAME, 'w')\
@@ -129,9 +129,9 @@ class Test__django_slimmer(TestCase):
         TEST_NAME_PREFIX = '/cache-forever'
         TEST_FILENAME = '/testtt.js'
         
-        settings.DJANGO_SLIMMER = True
-        settings.DJANGO_SLIMMER_SAVE_PREFIX = TEST_SAVE_PREFIX
-        settings.DJANGO_SLIMMER_NAME_PREFIX = TEST_NAME_PREFIX
+        settings.DJANGO_STATIC = True
+        settings.DJANGO_STATIC_SAVE_PREFIX = TEST_SAVE_PREFIX
+        settings.DJANGO_STATIC_NAME_PREFIX = TEST_NAME_PREFIX
         settings.MEDIA_ROOT = TEST_MEDIA_ROOT
         
         open(TEST_MEDIA_ROOT + TEST_FILENAME, 'w')\
@@ -193,9 +193,9 @@ class Test__django_slimmer(TestCase):
         TEST_NAME_PREFIX = '/cache-forever'
         TEST_FILENAME = '/example.gif'
         
-        settings.DJANGO_SLIMMER = True
-        settings.DJANGO_SLIMMER_SAVE_PREFIX = TEST_SAVE_PREFIX
-        settings.DJANGO_SLIMMER_NAME_PREFIX = TEST_NAME_PREFIX
+        settings.DJANGO_STATIC = True
+        settings.DJANGO_STATIC_SAVE_PREFIX = TEST_SAVE_PREFIX
+        settings.DJANGO_STATIC_NAME_PREFIX = TEST_NAME_PREFIX
         settings.MEDIA_ROOT = TEST_MEDIA_ROOT
         
         open(TEST_MEDIA_ROOT + TEST_FILENAME, 'wb')\
@@ -262,9 +262,9 @@ class Test__django_slimmer(TestCase):
         TEST_SAVE_PREFIX = '/tmp/infinity'
         TEST_FILENAME = '/foobar.css'
         
-        settings.DJANGO_SLIMMER = True
-        settings.DJANGO_SLIMMER_SAVE_PREFIX = TEST_SAVE_PREFIX
-        settings.DJANGO_SLIMMER_NAME_PREFIX = TEST_NAME_PREFIX
+        settings.DJANGO_STATIC = True
+        settings.DJANGO_STATIC_SAVE_PREFIX = TEST_SAVE_PREFIX
+        settings.DJANGO_STATIC_NAME_PREFIX = TEST_NAME_PREFIX
         settings.MEDIA_ROOT = TEST_MEDIA_ROOT
         settings.DEBUG = False
         
@@ -315,9 +315,9 @@ class Test__django_slimmer(TestCase):
         TEST_GIF_FILENAME = '/foo.gif'
         
         settings.DEBUG = False
-        settings.DJANGO_SLIMMER = True
-        settings.DJANGO_SLIMMER_SAVE_PREFIX = TEST_SAVE_PREFIX
-        settings.DJANGO_SLIMMER_NAME_PREFIX = TEST_NAME_PREFIX
+        settings.DJANGO_STATIC = True
+        settings.DJANGO_STATIC_SAVE_PREFIX = TEST_SAVE_PREFIX
+        settings.DJANGO_STATIC_NAME_PREFIX = TEST_NAME_PREFIX
         settings.MEDIA_ROOT = TEST_MEDIA_ROOT
 
         open(TEST_MEDIA_ROOT + TEST_GIF_FILENAME, 'wb')\
