@@ -36,7 +36,26 @@ The three template tags it enables are the following:
    
         <script type="text/javascript"
           src="{% slimfile "/javascript/myscript.js" %}"></script>
+	  
+3. `slimcontent` is used to whitespace compress content right in the
+   template. It requires a format paramter which can be `"js"`,
+   `"css"` or `"html"`. So, for example for some inline CSS content
+   you do this:
    
-  
+        <style type="text/css">
+        {% slimcontent "css" %}
+        h1, h2, h3 { 
+	    font-face:'Trebuchet MS', Verdana, Arial; 
+	}
+        {% endslimcontent %}
+        </style>
+	
+   ...and you get this:
+   
+        <style type="text/css">
+        h1,h2,h3{font-face:'Trebuchet MS',Verdana,Arial}
+	</style>
+	       
+	
    
    
