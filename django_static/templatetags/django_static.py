@@ -3,6 +3,7 @@ import os
 import re
 import sys
 import stat
+
 try:
     from slimmer import css_slimmer, guessSyntax, html_slimmer, js_slimmer
 except ImportError:
@@ -25,6 +26,7 @@ def _symlink(from_, to):
 
 # django 
 from django import template
+from django.conf import settings
 
 class SlimContentNode(template.Node):
     def __init__(self, nodelist, format=None):
@@ -133,25 +135,25 @@ def _static_file_timed(filename,
                        symlink_if_possible=False,
                        warn_no_file=True):
     
-    from settings import MEDIA_ROOT, DEBUG
     try:
-        from settings import DJANGO_STATIC
+        DJANGO_STATIC = settings.DJANGO_STATIC
         if not DJANGO_STATIC:
             return filename
-    except ImportError:
+    except AttributeError:
         return filename
     
     try:
-        from settings import DJANGO_STATIC_SAVE_PREFIX
-    except ImportError:
+        DJANGO_STATIC_SAVE_PREFIX = settings.DJANGO_STATIC_SAVE_PREFIX
+    except AttributeError:
         DJANGO_STATIC_SAVE_PREFIX = ''
         
     try:
-        from settings import DJANGO_STATIC_NAME_PREFIX
-    except ImportError:
+        DJANGO_STATIC_NAME_PREFIX = settings.DJANGO_STATIC_NAME_PREFIX
+    except AttributeError:
         DJANGO_STATIC_NAME_PREFIX = ''
-        
-    PREFIX = DJANGO_STATIC_SAVE_PREFIX and DJANGO_STATIC_SAVE_PREFIX or MEDIA_ROOT
+
+    DEBUG = settings.DEBUG
+    PREFIX = DJANGO_STATIC_SAVE_PREFIX and DJANGO_STATIC_SAVE_PREFIX or settings.MEDIA_ROOT
 
     new_filename, m_time = _FILE_MAP.get(filename, (None, None))
     
@@ -175,7 +177,7 @@ def _static_file_timed(filename,
         old_new_filename = None
 
     if not new_filename:
-        filepath = _filename2filepath(filename, MEDIA_ROOT)
+        filepath = _filename2filepath(filename, settings.MEDIA_ROOT)
         if not os.path.isfile(filepath):
             if warn_no_file:
                 import warnings; warnings.warn("Can't find file %s" % filepath)
@@ -273,7 +275,7 @@ def _mkdir(newdir):
             os.mkdir(newdir)
             
             
-def _filename2filepath(filename, MEDIA_ROOT):
+def _filename2filepath(filename, media_root):
     # The reason we're doing this is because the templates will 
     # look something like this:
     # src="{{ MEDIA_URL }}/css/foo.css"
@@ -281,9 +283,9 @@ def _filename2filepath(filename, MEDIA_ROOT):
     # just be ''
     
     if filename.startswith('/'):
-        path = os.path.join(MEDIA_ROOT, filename[1:])
+        path = os.path.join(media_root, filename[1:])
     else:
-        path = os.path.join(MEDIA_ROOT, filename)
+        path = os.path.join(media_root, filename)
         
     if not os.path.isdir(os.path.dirname(path)):
         _mkdir(os.path.dirname(path))
