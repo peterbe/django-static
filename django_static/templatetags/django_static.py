@@ -28,6 +28,27 @@ def _symlink(from_, to):
 from django import template
 from django.conf import settings
 
+
+## These two methods are put here if someone wants to access the django_static
+## functionality from code rather than from a django template
+## E.g.
+##   from django_static import slimfile
+##   print slimfile('/css/foo.js')
+
+def slimfile(filename):
+    return _static_file(filename,
+                        symlink_if_possible=_CAN_SYMLINK,
+                        slimmer_if_possible=True)
+
+def staticfile(filename):
+    return _static_file(filename,
+                        symlink_if_possible=_CAN_SYMLINK,
+                        slimmer_if_possible=False)
+
+
+
+
+
 class SlimContentNode(template.Node):
     def __init__(self, nodelist, format=None):
         self.nodelist = nodelist
@@ -110,7 +131,8 @@ class StaticFileNode(template.Node):
         return _static_file(self.filename,
                             slimmer_if_possible=self.slimmer_if_possible,
                             symlink_if_possible=self.symlink_if_possible)
-    
+
+
     
 _FILE_MAP = {}
 
