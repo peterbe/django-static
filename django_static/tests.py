@@ -1,4 +1,5 @@
 import os
+import stat
 import time
 import re
 from glob import glob
@@ -10,7 +11,7 @@ def _slim_file(x, symlink_if_possible=False,):
     return _static_file(x, slimmer_if_possible=True,
                         symlink_if_possible=symlink_if_possible)
 
-import settings 
+from django.conf import settings 
 #TEST_JS_FILENAME = '/test__django_slimmer.js'
 #TEST_CSS_FILENAME = '/test__django_slimmer.css'
 #TEST_GIF_FILENAME = '/test__django_slimmer.gif'
@@ -22,7 +23,7 @@ TEST_MEDIA_ROOT = '/tmp/fake_media_root'
 _original_MEDIA_ROOT = settings.MEDIA_ROOT
 _original_DEBUG = settings.DEBUG
 
-class Test__django_slimmer(TestCase):
+class TestDjangoStatic(TestCase):
     
     def _notice_file(self, filepath):
         assert os.path.isfile(filepath)
@@ -33,7 +34,7 @@ class Test__django_slimmer(TestCase):
         if not os.path.isdir(TEST_MEDIA_ROOT):
             os.mkdir(TEST_MEDIA_ROOT)
             
-        super(Test__django_slimmer, self).setUp()
+        super(TestDjangoStatic, self).setUp()
         
     def tearDown(self):
         for filepath in self.__added_filepaths:
@@ -55,7 +56,7 @@ class Test__django_slimmer(TestCase):
         settings.MEDIA_ROOT = _original_MEDIA_ROOT
         settings.DEBUG = _original_DEBUG
         
-        super(Test__django_slimmer, self).tearDown()
+        super(TestDjangoStatic, self).tearDown()
 
 
     def test__slim_file__debug_on_save_prefixed(self):
@@ -64,7 +65,8 @@ class Test__django_slimmer(TestCase):
         """
         TEST_SAVE_PREFIX = '/tmp/infinity'
         TEST_FILENAME = '/test.js'
-        
+
+        settings.DEBUG = True
         settings.DJANGO_STATIC = True
         settings.DJANGO_STATIC_SAVE_PREFIX = TEST_SAVE_PREFIX
         settings.DJANGO_STATIC_NAME_PREFIX = ''
@@ -104,7 +106,7 @@ class Test__django_slimmer(TestCase):
         # if in debug mode, if the file changes and you call
         # _slim_file() it should return a new file and delete the
         # old one
-        time.sleep(1) # slow but necessary
+        time.sleep(1.1) # slow but necessary
         # now change the original file
         open(TEST_MEDIA_ROOT + TEST_FILENAME, 'w').write('var b  =  foo\n')
         
@@ -129,6 +131,7 @@ class Test__django_slimmer(TestCase):
         TEST_NAME_PREFIX = '/cache-forever'
         TEST_FILENAME = '/testtt.js'
         
+        settings.DEBUG = True
         settings.DJANGO_STATIC = True
         settings.DJANGO_STATIC_SAVE_PREFIX = TEST_SAVE_PREFIX
         settings.DJANGO_STATIC_NAME_PREFIX = TEST_NAME_PREFIX
@@ -193,6 +196,7 @@ class Test__django_slimmer(TestCase):
         TEST_NAME_PREFIX = '/cache-forever'
         TEST_FILENAME = '/example.gif'
         
+        settings.DEBUG = True
         settings.DJANGO_STATIC = True
         settings.DJANGO_STATIC_SAVE_PREFIX = TEST_SAVE_PREFIX
         settings.DJANGO_STATIC_NAME_PREFIX = TEST_NAME_PREFIX
@@ -262,7 +266,7 @@ class Test__django_slimmer(TestCase):
         TEST_SAVE_PREFIX = '/tmp/infinity'
         TEST_FILENAME = '/foobar.css'
         
-        settings.DJANGO_STATIC = True
+        settings.DJANGO_STATIC = True        
         settings.DJANGO_STATIC_SAVE_PREFIX = TEST_SAVE_PREFIX
         settings.DJANGO_STATIC_NAME_PREFIX = TEST_NAME_PREFIX
         settings.MEDIA_ROOT = TEST_MEDIA_ROOT
@@ -344,3 +348,55 @@ class Test__django_slimmer(TestCase):
         assert expect.findall(content), content
 
         
+    def test_slimfile_with_media_url(self):
+        """ same as test__slim_file__debug_on_save_prefixed
+        but this time with DJANGO_STATIC_MEDIA_URL set.
+        """
+        TEST_SAVE_PREFIX = '/tmp/infinity'
+        TEST_FILENAME = '/test.js'
+
+        settings.DEBUG = True
+        settings.DJANGO_STATIC = True
+        settings.DJANGO_STATIC_SAVE_PREFIX = TEST_SAVE_PREFIX
+        settings.DJANGO_STATIC_NAME_PREFIX = ''
+        settings.MEDIA_ROOT = TEST_MEDIA_ROOT
+        
+        open(TEST_MEDIA_ROOT + TEST_FILENAME, 'w')\
+          .write('var a  =  test\n')
+        self._notice_file(TEST_MEDIA_ROOT + TEST_FILENAME)
+
+        from django.template import Template
+        from django.template import Context
+        
+
+        template_as_string = """
+        {% load django_static %}
+        {% slimfile "/test.js" %}
+        """
+        # First do it without DJANGO_STATIC_MEDIA_URL set
+        
+        template = Template(template_as_string)
+        context = Context()
+        rendered = template.render(context).strip()
+        
+        expect_mtime = os.stat(TEST_MEDIA_ROOT + TEST_FILENAME)[stat.ST_MTIME]
+        expect_rendered = u'/test.%d.js' % expect_mtime
+        self.assertEqual(rendered, expect_rendered)
+        
+        settings.DJANGO_STATIC_MEDIA_URL = 'http://static.example.com'
+        
+        rendered = template.render(context).strip()
+        expect_rendered = u'http://static.example.com/test.%d.js' % expect_mtime
+        self.assertEqual(rendered, expect_rendered)
+        
+        # this should work if you change the file
+        time.sleep(1)
+        open(TEST_MEDIA_ROOT + TEST_FILENAME, 'w')\
+          .write('var a  =  different\n')
+        expect_mtime = os.stat(TEST_MEDIA_ROOT + TEST_FILENAME)[stat.ST_MTIME]
+        
+        rendered = template.render(context).strip()
+        expect_rendered = u'http://static.example.com/test.%d.js' % expect_mtime
+        self.assertEqual(rendered, expect_rendered)
+
+

@@ -156,6 +156,8 @@ def _static_file_timed(filename,
                        slimmer_if_possible=False, 
                        symlink_if_possible=False,
                        warn_no_file=True):
+
+    
     
     try:
         DJANGO_STATIC = settings.DJANGO_STATIC
@@ -175,7 +177,20 @@ def _static_file_timed(filename,
         DJANGO_STATIC_NAME_PREFIX = ''
 
     DEBUG = settings.DEBUG
-    PREFIX = DJANGO_STATIC_SAVE_PREFIX and DJANGO_STATIC_SAVE_PREFIX or settings.MEDIA_ROOT
+    PREFIX = DJANGO_STATIC_SAVE_PREFIX and DJANGO_STATIC_SAVE_PREFIX or \
+      settings.MEDIA_ROOT
+    
+    try:
+        MEDIA_URL = settings.DJANGO_STATIC_MEDIA_URL
+    except AttributeError:
+        MEDIA_URL = None
+    
+    def wrap_up(filename):
+        if MEDIA_URL:
+            return MEDIA_URL + filename
+        return filename
+        
+            
 
     new_filename, m_time = _FILE_MAP.get(filename, (None, None))
     
@@ -191,19 +206,19 @@ def _static_file_timed(filename,
         else:
             # This is really fast and only happens when NOT in DEBUG mode
             # since it doesn't do any comparison 
-            return new_filename
+            return wrap_up(new_filename)
     else:
         # This is important so that we can know that there wasn't an 
         # old file which will help us know we don't need to delete 
         # the old one
         old_new_filename = None
-
+        
     if not new_filename:
         filepath = _filename2filepath(filename, settings.MEDIA_ROOT)
         if not os.path.isfile(filepath):
             if warn_no_file:
                 import warnings; warnings.warn("Can't find file %s" % filepath)
-            return filename
+            return wrap_up(filename)
         
         new_m_time = os.stat(filepath)[stat.ST_MTIME]
         if m_time:
@@ -213,7 +228,7 @@ def _static_file_timed(filename,
                 m_time = None
             else:
                 # ...and it hasn't changed!
-                return old_new_filename
+                return wrap_up(old_new_filename)
             
         if not m_time:
             # We did not have the filename in the map OR it has changed
@@ -275,7 +290,7 @@ def _static_file_timed(filename,
         #print "** STORING:", new_filepath
         open(new_filepath, 'w').write(content)
                             
-    return DJANGO_STATIC_NAME_PREFIX + new_filename
+    return wrap_up(DJANGO_STATIC_NAME_PREFIX + new_filename)
 
 
 def _mkdir(newdir):
