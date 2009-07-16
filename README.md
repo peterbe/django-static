@@ -76,6 +76,24 @@ change the name the files get you can set
 to write a rewrite rule/regular expression that in
 nginx/varnish/apache2 deliberately sets extra aggressive caching. 
 
+Another option is to let django_static take care of setting your
+`MEDIA_URL`. You could do this:
+
+        <img src="{{ MEDIA_URL }}{% staticfile "/foo.png" %}"/>
+	
+But if you're feeling lazy and what django_static to automatically
+take care of it set `DJANGO_STATIC_MEDIA_URL`. In settings.py:
+
+        DJANGO_STATIC_MEDIA_URL = "http://static.example.com"
+	
+In your template:
+
+        <img src="{% staticfile "/foo.png" %}"/>
+	
+And you get this result:
+
+        <img src="http://static.example.com/foo.1247785534.png"/>
+
 	
 How to hook this up with nginx
 ------------------------------
