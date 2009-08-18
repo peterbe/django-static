@@ -46,7 +46,7 @@ The three template tags it enables are the following:
         {% slimcontent "css" %}
         h1, h2, h3 { 
 	    font-face:'Trebuchet MS', Verdana, Arial; 
-	}
+        }
         {% endslimcontent %}
         </style>
 	
