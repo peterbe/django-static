@@ -6,6 +6,7 @@ import stat
 
 try:
     from slimmer import css_slimmer, guessSyntax, html_slimmer, js_slimmer
+    slimmer = 'installed'
 except ImportError:
     slimmer = None
     import warnings
