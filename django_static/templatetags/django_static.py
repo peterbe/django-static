@@ -285,7 +285,7 @@ def _static_file_timed(filename,
                                             warn_no_file=DEBUG and True or False)
                 return match.group().replace(filename, new_filename)
             content = referred_css_images_regex.sub(replacer, content)
-        else:
+        elif slimmer:
             raise ValueError(
               "Unable to slimmer file %s. Unrecognized extension" % new_filename)
         #print "** STORING:", new_filepath
