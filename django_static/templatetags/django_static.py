@@ -7,7 +7,10 @@ import stat
 try:
     from slimmer import css_slimmer, guessSyntax, html_slimmer, js_slimmer
 except ImportError:
-    raise ImportError("slimmer not installed! Go do an easy_install slimmer")
+    slimmer = None
+    import warnings
+    warnings.warn("slimmer is not installed. (easy_install slimmer)")
+    #raise ImportError("slimmer not installed! Go do an easy_install slimmer")
 
 from pprint import pprint
 
@@ -55,6 +58,8 @@ class SlimContentNode(template.Node):
         self.format = format
     def render(self, context):
         code = self.nodelist.render(context)
+        if slimmer is None:
+            return code
         if self.format == 'css':
             return css_slimmer(code)
         elif self.format in ('js', 'javascript'):
@@ -63,7 +68,7 @@ class SlimContentNode(template.Node):
             return html_slimmer(code)
         else:
             format = guessSyntax(code)
-            if format:
+            if format in ('css','js','html'):
                 self.format = format
                 return self.render(context)
             
@@ -261,9 +266,9 @@ def _static_file_timed(filename,
         # Then we expect to be able to modify the content and we will 
         # definitely need to write a new file. 
         content = open(filepath).read()
-        if new_filename.endswith('.js'):
+        if new_filename.endswith('.js') and slimmer is not None:
             content = js_slimmer(content)
-        elif new_filename.endswith('.css'):
+        elif new_filename.endswith('.css') and slimmer is not None:
             content = css_slimmer(content)
             # and _static_file() all images refered in the CSS file itself
             def replacer(match):
