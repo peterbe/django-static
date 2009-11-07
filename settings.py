@@ -74,10 +74,10 @@ TEMPLATE_DIRS = (
 )
 
 INSTALLED_APPS = (
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.sites',
+    #'django.contrib.auth',
+    #'django.contrib.contenttypes',
+    #'django.contrib.sessions',
+    #'django.contrib.sites',
     'django_static',
     'exampleapp',
 )
@@ -86,3 +86,5 @@ INSTALLED_APPS = (
 
 
 DJANGO_STATIC = True
+
+DJANGO_STATIC_CLOSURE_COMPILER = '/home/peterbe/tmp/compiler-latest/compiler.jar'

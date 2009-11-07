@@ -13,6 +13,7 @@
     }
     {% endslimcontent %}
     </style>
+ 
   </head>
   <body>
     <div id="content">
@@ -23,7 +24,7 @@
       <img src="{% staticfile "/images/peterbe.jpg" %}" alt="Proud author Peterbe" border="0" />
     </a>
     
-    {% slimcontent "html" %}
+    {% slimcontent %}
     <h3>Benefits of django-static</h3>
     <ul>
     
@@ -53,8 +54,24 @@
     // pointless but proves the point
     return a + b;
   }
+  {% endslimcontent %}
   
+  {% slimcontent %}
+  // This time it can guess it's javascript
+  function add(one, two) {
+    if (one == two) {
+       return one * two;
+    } else {
+      return one + two;
+    }
+  }
   {% endslimcontent %}
   </script>
+  
+  {% slimfiles %}
+  <script src="/javascript/canbe.js"></script>
+  <script src="/javascript/combined.min.js"></script>
+  {% endslimfiles %}
+  
   </body>
 </html>

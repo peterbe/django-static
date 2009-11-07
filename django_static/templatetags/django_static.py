@@ -3,15 +3,16 @@ import os
 import re
 import sys
 import stat
+from glob import glob
+from collections import defaultdict
 
 try:
-    from slimmer import css_slimmer, guessSyntax, html_slimmer, js_slimmer
+    from slimmer import css_slimmer, guessSyntax, html_slimmer, js_slimmer, xhtml_slimmer
     slimmer = 'installed'
 except ImportError:
     slimmer = None
     import warnings
     warnings.warn("slimmer is not installed. (easy_install slimmer)")
-    #raise ImportError("slimmer not installed! Go do an easy_install slimmer")
 
 from pprint import pprint
 
@@ -32,6 +33,7 @@ def _symlink(from_, to):
 from django import template
 from django.conf import settings
 
+register = template.Library()
 
 ## These two methods are put here if someone wants to access the django_static
 ## functionality from code rather than from a django template
@@ -54,29 +56,32 @@ def staticfile(filename):
 
 
 class SlimContentNode(template.Node):
+    
     def __init__(self, nodelist, format=None):
         self.nodelist = nodelist
         self.format = format
+        
     def render(self, context):
         code = self.nodelist.render(context)
         if slimmer is None:
             return code
+        
+        if self.format not in ('css','js','html','xhtml'):
+            self.format = guessSyntax(code)
+            
         if self.format == 'css':
             return css_slimmer(code)
         elif self.format in ('js', 'javascript'):
             return js_slimmer(code)
+        elif self.format == 'xhtml':
+            return xhtml_slimmer(code)
         elif self.format == 'html':
             return html_slimmer(code)
-        else:
-            format = guessSyntax(code)
-            if format in ('css','js','html'):
-                self.format = format
-                return self.render(context)
             
         return code
 
     
-register = template.Library()
+
 @register.tag(name='slimcontent')
 def do_slimcontent(parser, token):
     nodelist = parser.parse(('endslimcontent',))
@@ -91,6 +96,11 @@ def do_slimcontent(parser, token):
                           "%r tag's argument should be in quotes" % tag_name
                           
     return SlimContentNode(nodelist, format[1:-1])
+
+
+
+    
+    
 
 
 @register.tag(name='slimfile')
@@ -139,6 +149,159 @@ class StaticFileNode(template.Node):
                             symlink_if_possible=self.symlink_if_possible)
 
 
+
+class StaticFilesNode(template.Node):
+    """find all static files in the wrapped code and run staticfile (or 
+    slimfile) on them all by analyzing the code.
+    """
+    def __init__(self, nodelist, slimmer_if_possible=False,
+                 symlink_if_possible=False):
+        self.nodelist = nodelist
+        self.slimmer_if_possible = slimmer_if_possible
+        
+        self.symlink_if_possible = symlink_if_possible
+        
+    def render(self, context):
+        code = self.nodelist.render(context)
+        js_files = []
+        scripts_regex = re.compile('<script [^>]*src=["\']([^"\']+)["\'].*?</script>')
+        styles_regex = re.compile('<link.*?href=["\']([^"\']+)["\'].*?>', re.M|re.DOTALL)
+        
+        new_js_filenames = []
+        for match in scripts_regex.finditer(code):
+            whole_tag = match.group()
+            for filename in match.groups():
+                
+                slimmer_if_possible = self.slimmer_if_possible
+                if slimmer_if_possible and filename.endswith('.min.js'):
+                    # Override! Because we simply don't want to run slimmer
+                    # on files that have the file extension .min.js
+                    slimmer_if_possible = False
+                    
+                    
+                new_filename = _static_file(filename, 
+                                            slimmer_if_possible=slimmer_if_possible,
+                                            symlink_if_possible=self.symlink_if_possible)
+                if new_filename != filename:
+                    # it worked!
+                    new_js_filenames.append(new_filename)
+                    
+                    code = code.replace(whole_tag, '')
+                    
+        # Now, we need to combine these files into one
+        if new_js_filenames:
+            new_js_filename = _combine_filenames(new_js_filenames)
+        else:
+            new_js_filename = None
+            
+            
+        new_css_filenames = defaultdict(list)
+        
+        # It's less trivial with CSS because we can't combine those that are
+        # of different media
+        media_regex = re.compile('media=["\']([^"\']+)["\']')
+        for match in styles_regex.finditer(code):
+            whole_tag = match.group()
+            #print "WHOLE_TAG", repr(whole_tag)
+            try:
+                media_type = media_regex.findall(whole_tag)[0]
+            except IndexError:
+                # Because it's so common
+                media_type = 'screen'
+                
+            for filename in match.groups():
+                new_filename = _static_file(filename, 
+                                            slimmer_if_possible=self.slimmer_if_possible,
+                                            symlink_if_possible=self.symlink_if_possible)
+                
+                if new_filename != filename:
+                    # it worked!
+                    new_css_filenames[media_type].append(new_filename)
+                    
+                    code = code.replace(whole_tag, '')
+                
+        # Now, we need to combine these files into one
+        new_css_filenames_combined = {}
+        if new_css_filenames:
+            for media_type, filenames in new_css_filenames.items():
+                new_css_filenames_combined[media_type] = _combine_filenames(filenames)
+        
+        # When we make up this new file we have to understand where to write it
+        try:
+            DJANGO_STATIC_SAVE_PREFIX = settings.DJANGO_STATIC_SAVE_PREFIX
+        except AttributeError:
+            DJANGO_STATIC_SAVE_PREFIX = ''
+        PREFIX = DJANGO_STATIC_SAVE_PREFIX and DJANGO_STATIC_SAVE_PREFIX or \
+          settings.MEDIA_ROOT
+        
+        if new_js_filename:
+            new_js_filepath = _filename2filepath(new_js_filename, PREFIX)
+        #    for old_filepath in glob(re.sub('\.\d{10}.', '.*.', new_js_filepath)):
+        #        os.remove(old_filepath)
+            
+
+        # If there was a file with the same name there already but with a different
+        # timestamp, then delete it
+        
+        if new_js_filenames:
+            new_file = open(new_js_filepath, 'w')
+            for filename in new_js_filenames:
+                old_filepath = _filename2filepath(filename, PREFIX)
+                new_file.write("%s\n" % open(old_filepath).read())
+                os.remove(old_filepath)
+            new_file.close()
+            
+        if new_js_filename:
+            new_tag = '<script type="text/javascript" src="%s"></script>' % \
+              new_js_filename
+            code = "%s%s" % (new_tag, code)
+        
+        for media_type, new_css_filename in new_css_filenames_combined.items():
+            new_css_filepath = _filename2filepath(new_css_filename, PREFIX)
+            
+            new_file = open(new_css_filepath, 'w')
+            redundant_filenames = new_css_filenames[media_type]
+            
+            for filename in redundant_filenames:
+                old_filepath = _filename2filepath(filename, PREFIX)
+                new_file.write("%s\n" % open(old_filepath).read())
+                # The old file should only be removed if multiple files were
+                # actually combined into one
+                if len(redundant_filenames) > 1:
+                    #print "** REMOVE", old_filepath
+                    os.remove(old_filepath)
+            new_file.close()
+            
+            new_tag = '<link rel="stylesheet" type="text/css" media="%s" href="%s"/>' % \
+              (media_type, new_css_filename)
+            
+            code = "%s%s" % (new_tag, code)
+        
+        return code
+            
+        
+                 
+                 
+@register.tag(name='slimfiles')
+def do_slimfiles(parser, token):
+    nodelist = parser.parse(('endslimfiles',))
+    parser.delete_first_token()
+    
+    return StaticFilesNode(nodelist,
+                           symlink_if_possible=_CAN_SYMLINK,
+                           slimmer_if_possible=True)
+
+
+@register.tag(name='staticfiles')
+def do_staticfiles(parser, token):
+    nodelist = parser.parse(('endstaticfiles',))
+    parser.delete_first_token()
+    
+    return StaticFilesNode(nodelist,
+                           symlink_if_possible=_CAN_SYMLINK,
+                           slimmer_if_possible=False)
+
+
     
 _FILE_MAP = {}
 
@@ -158,12 +321,11 @@ def _static_file(filename,
     return r
         
         
-def _static_file_timed(filename, 
+def _static_file_timed(filename,
                        slimmer_if_possible=False, 
                        symlink_if_possible=False,
                        warn_no_file=True):
 
-    
     
     try:
         DJANGO_STATIC = settings.DJANGO_STATIC
@@ -196,8 +358,6 @@ def _static_file_timed(filename,
             return MEDIA_URL + filename
         return filename
         
-            
-
     new_filename, m_time = _FILE_MAP.get(filename, (None, None))
     
     # we might already have done a conversion but the question is
@@ -336,3 +496,55 @@ def _filename2filepath(filename, media_root):
     return path
     
     
+    
+def _combine_filenames(filenames):
+    """Return a new filename to use as the combined file name for a 
+    bunch files. 
+    A precondition is that they all have the same file extension
+    
+    Given that the list of files can have different paths, we aim to use the 
+    most common path.
+    
+    Example:
+      /somewhere/else/foo.js
+      /somewhere/bar.js
+      /somewhere/different/too/foobar.js
+    The result will be
+      /somewhere/foo_bar_foobar.js
+      
+    Another thing to note, if the filenames have timestamps in them, combine
+    them all and use the highest timestamp.
+    
+    """
+    path = None
+    names = []
+    extension = None
+    timestamps = []
+    for filename in filenames:
+        name = os.path.basename(filename)
+        if not extension:
+            extension = os.path.splitext(name)[1]
+        elif os.path.splitext(name)[1] != extension:
+            raise ValueError("Can't combine multiple file extensions")
+        
+        for each in re.finditer('\.\d{10}\.', name):
+            timestamps.append(int(each.group().replace('.','')))
+            name = name.replace(each.group(), '.')
+        name = os.path.splitext(name)[0]
+        names.append(name)
+        
+        if path is None:
+            path = os.path.dirname(filename)
+        else:
+            if len(os.path.dirname(filename)) < len(path):
+                path = os.path.dirname(filename)
+    
+    
+    new_filename = '_'.join(names)
+    if timestamps:
+        new_filename += ".%s" % max(timestamps)
+    
+    new_filename += extension
+    
+    return os.path.join(path, new_filename)
+                
