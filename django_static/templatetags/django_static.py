@@ -6,6 +6,7 @@ import stat
 from glob import glob
 from collections import defaultdict
 from cStringIO import StringIO
+from subprocess import Popen, PIPE    
 
 try:
     from slimmer import css_slimmer, guessSyntax, html_slimmer, js_slimmer, xhtml_slimmer
@@ -35,12 +36,12 @@ register = template.Library()
 def slimfile(filename):
     return _static_file(filename,
                         symlink_if_possible=_CAN_SYMLINK,
-                        slimmer_if_possible=True)
+                        optimize_if_possible=True)
 
 def staticfile(filename):
     return _static_file(filename,
                         symlink_if_possible=_CAN_SYMLINK,
-                        slimmer_if_possible=False)
+                        optimize_if_possible=False)
 
 
 class SlimContentNode(template.Node):
@@ -98,11 +99,11 @@ def slimfile_node(parser, token):
          or 
          {% slimfile "/foo.js; /bar.js" as variable_name %}
     """
-    return staticfile_node(parser, token, slimmer_if_possible=True)
+    return staticfile_node(parser, token, optimize_if_possible=True)
 
 
 @register.tag(name='staticfile')
-def staticfile_node(parser, token, slimmer_if_possible=False):
+def staticfile_node(parser, token, optimize_if_possible=False):
     """For example:
          {% staticfile "/js/foo.js" %}
          or
@@ -125,25 +126,27 @@ def staticfile_node(parser, token, slimmer_if_possible=False):
     
     return StaticFileNode(filename,
                           symlink_if_possible=_CAN_SYMLINK,
-                          slimmer_if_possible=slimmer_if_possible)
+                          optimize_if_possible=optimize_if_possible)
     
 
 class StaticFileNode(template.Node):
     
     def __init__(self, filename_var,
-                 slimmer_if_possible=False, 
+                 optimize_if_possible=False, 
                  symlink_if_possible=False,
                  context_name=None):
         self.filename_var = filename_var
-        self.slimmer_if_possible = slimmer_if_possible
+        self.optimize_if_possible = optimize_if_possible
         self.symlink_if_possible = symlink_if_possible
         self.context_name = context_name
         
     def render(self, context):
         filename = self.filename_var.resolve(context)
+        if not getattr(settings, 'DJANGO_STATIC', False):
+            return filename
         
         new_filename = _static_file([x.strip() for x in filename.split(';')],
-                            slimmer_if_possible=self.slimmer_if_possible,
+                            optimize_if_possible=self.optimize_if_possible,
                             symlink_if_possible=self.symlink_if_possible)
         if self.context_name:
             context[self.context_name] = new_filename
@@ -158,7 +161,7 @@ def do_slimallfiles(parser, token):
     
     return StaticFilesNode(nodelist,
                            symlink_if_possible=_CAN_SYMLINK,
-                           slimmer_if_possible=True)
+                           optimize_if_possible=True)
 
 
 @register.tag(name='staticall')
@@ -168,18 +171,24 @@ def do_staticallfiles(parser, token):
     
     return StaticFilesNode(nodelist,
                            symlink_if_possible=_CAN_SYMLINK,
-                           slimmer_if_possible=False)
+                           optimize_if_possible=False)
 
+
+
+
+scripts_regex = re.compile('<script [^>]*src=["\']([^"\']+)["\'].*?</script>')
+styles_regex = re.compile('<link.*?href=["\']([^"\']+)["\'].*?>', re.M|re.DOTALL)
+img_regex = re.compile('<img.*?src=["\']([^"\']+)["\'].*?>', re.M|re.DOTALL)
 
 
 class StaticFilesNode(template.Node):
     """find all static files in the wrapped code and run staticfile (or 
     slimfile) on them all by analyzing the code.
     """
-    def __init__(self, nodelist, slimmer_if_possible=False,
+    def __init__(self, nodelist, optimize_if_possible=False,
                  symlink_if_possible=False):
         self.nodelist = nodelist
-        self.slimmer_if_possible = slimmer_if_possible
+        self.optimize_if_possible = optimize_if_possible
         
         self.symlink_if_possible = symlink_if_possible
         
@@ -196,20 +205,16 @@ class StaticFilesNode(template.Node):
         """
         
         code = self.nodelist.render(context)
-        js_files = []
-        scripts_regex = re.compile('<script [^>]*src=["\']([^"\']+)["\'].*?</script>')
-        styles_regex = re.compile('<link.*?href=["\']([^"\']+)["\'].*?>', re.M|re.DOTALL)
-        
         new_js_filenames = []
         for match in scripts_regex.finditer(code):
             whole_tag = match.group()
             for filename in match.groups():
                 
-                slimmer_if_possible = self.slimmer_if_possible
-                if slimmer_if_possible and filename.endswith('.min.js'):
+                optimize_if_possible = self.optimize_if_possible
+                if optimize_if_possible and filename.endswith('.min.js'):
                     # Override! Because we simply don't want to run slimmer
                     # on files that have the file extension .min.js
-                    slimmer_if_possible = False
+                    optimize_if_possible = False
                 
                 new_js_filenames.append(filename)
                 code = code.replace(whole_tag, '')
@@ -217,10 +222,21 @@ class StaticFilesNode(template.Node):
         # Now, we need to combine these files into one
         if new_js_filenames:
             new_js_filename = _static_file(new_js_filenames,
-                               slimmer_if_possible=slimmer_if_possible,
+                               optimize_if_possible=optimize_if_possible,
                                symlink_if_possible=self.symlink_if_possible)
         else:
             new_js_filename = None
+            
+        new_image_filenames = []
+        def image_replacer(match):
+            tag = match.group()
+            for filename in match.groups():
+                new_filename = _static_file(filename,
+                                            symlink_if_possible=self.symlink_if_possible)
+                if new_filename != filename: 
+                    tag = tag.replace(filename, new_filename)
+            return tag
+        code = img_regex.sub(image_replacer, code)
         
         new_css_filenames = defaultdict(list)
         
@@ -245,7 +261,7 @@ class StaticFilesNode(template.Node):
             for media_type, filenames in new_css_filenames.items():
                 new_css_filenames_combined[media_type] = \
                   _static_file(filenames,
-                               slimmer_if_possible=self.slimmer_if_possible,
+                               optimize_if_possible=self.optimize_if_possible,
                                symlink_if_possible=self.symlink_if_possible)
                 
         # When we make up this new file we have to understand where to write it
@@ -286,12 +302,12 @@ _FILE_MAP = {}
 referred_css_images_regex = re.compile('url\(([^\)]+)\)')
 
 #def _static_file(filename, 
-#                 slimmer_if_possible=False,
+#                 optimize_if_possible=False,
 #                 symlink_if_possible=False,
 #                 warn_no_file=True):
 #    from time import time
 #    t0=time()
-#    r = _static_file_timed(filename, slimmer_if_possible=slimmer_if_possible,
+#    r = _static_file_timed(filename, optimize_if_possible=optimize_if_possible,
 #                           symlink_if_possible=symlink_if_possible,
 #                           warn_no_file=warn_no_file)
 #    t1=time()
@@ -300,7 +316,7 @@ referred_css_images_regex = re.compile('url\(([^\)]+)\)')
         
         
 def _static_file(filename,
-                 slimmer_if_possible=False, 
+                 optimize_if_possible=False,
                  symlink_if_possible=False,
                  warn_no_file=True):
     """
@@ -430,14 +446,14 @@ def _static_file(filename,
     # The caller of this method is responsible for dictacting if we're should
     # slimmer and if we can symlink.
     
-    if slimmer_if_possible:
+    if optimize_if_possible:
         # Then we expect to be able to modify the content and we will 
         # definitely need to write a new file. 
         content = open(filepath).read()
-        if new_filename.endswith('.js') and slimmer is not None:
-            content = js_slimmer(content)
-        elif new_filename.endswith('.css') and slimmer is not None:
-            content = css_slimmer(content)
+        if new_filename.endswith('.js') and has_optimizer(JS):
+            content = optimize(content, JS)
+        elif new_filename.endswith('.css') and has_optimizer(CSS):
+            content = optimize(content, CSS)
             # and _static_file() all images refered in the CSS file itself
             def replacer(match):
                 filename = match.groups()[0]
@@ -459,6 +475,11 @@ def _static_file(filename,
         open(new_filepath, 'w').write(content)
     elif symlink_if_possible and not is_combined_files:
         #print "** SYMLINK:", filepath, '-->', new_filepath
+        if os.path.lexists(new_filepath):
+            # since in the other cases we write a new file, it doesn't matter
+            # that the file existed before.
+            # That's not the case with symlinks
+            os.unlink(new_filepath)
         os.symlink(filepath, new_filepath)
     else:
         #print "** STORING COMBO:", new_filepath
@@ -555,4 +576,48 @@ def _combine_filenames(filenames):
     new_filename += extension
     
     return os.path.join(path, new_filename)
-                
+
+
+CSS = 'css'
+JS = 'js'
+
+def has_optimizer(type_):
+    if type_ == CSS:
+        return slimmer is not None
+    elif type_ == JS:
+        if getattr(settings, 'DJANGO_STATIC_CLOSURE_COMPILER', None):
+            return True
+        # need to look into having Yahoo! YUI thing here
+        
+        return slimmer is not None
+    else:
+        raise ValueError("Invalid type %r" % type_)
+
+def optimize(content, type_):
+    if type_ == CSS:
+        return css_slimmer(content)
+    elif type_ == JS:
+        if getattr(settings, 'DJANGO_STATIC_CLOSURE_COMPILER', None):
+            return _run_closure_compiler(content)
+        return js_slimmer(content)
+    else:
+        raise ValueError("Invalid type %r" % type_)
+    
+def _run_closure_compiler(jscode):
+    
+    cmd = "java -jar %s" % settings.DJANGO_STATIC_CLOSURE_COMPILER
+    proc = Popen(cmd, shell=True, stdout=PIPE, stdin=PIPE, stderr=PIPE)
+    proc.stdin.write(jscode)
+    proc.stdin.close()
+    errors = proc.stderr.read()
+    if errors:
+        return "/* ERRORS WHEN RUNNING CLOSURE COMPILER\n" + errors + '\n*/\n' + jscode
+    
+    print "ERRORS"
+    print errors
+    out = proc.stdout.read()
+    print "OUT"
+    print out
+    return out
+               
+    return '// work in progress\nalert("work harder");'

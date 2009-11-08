@@ -21,8 +21,22 @@
     <h1>Test page</h1>
     
     <a href="http://www.peterbe.com/">
-      <img src="{% staticfile "/images/peterbe.jpg" %}" alt="Proud author Peterbe" border="0" />
+      <img src="{% staticfile "/images/peterbe.jpg" %}" class="peter" alt="Proud author Peterbe" border="0" />
     </a>
+    
+    {% include "showicons.html" %}
+    
+    {% staticall %}
+      <p>Some images<br/>
+      
+      <img src="/images/icon1.png"/>
+      <img alt="Uh?" src="/images/icon2.png"/>
+      <img 
+      src="/images/icon3.png"
+      />
+      <img src="/images/deliberately_non_existant.png"/>
+      </p>
+    {% endstaticall %}
     
     {% slimcontent %}
     <h3>Benefits of django-static</h3>
@@ -68,10 +82,12 @@
   {% endslimcontent %}
   </script>
   
-  {% slimfiles %}
+  <script src="{% slimfile "/javascript/shit_code.js" %}"></script>
+  
+  {% slimall %}
   <script src="/javascript/canbe.js"></script>
   <script src="/javascript/combined.min.js"></script>
-  {% endslimfiles %}
+  {% endslimall %}
   
   </body>
 </html>
