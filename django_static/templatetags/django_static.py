@@ -205,6 +205,9 @@ class StaticFilesNode(template.Node):
         """
         
         code = self.nodelist.render(context)
+        if not getattr(settings, 'DJANGO_STATIC', False):
+            return code
+        
         new_js_filenames = []
         for match in scripts_regex.finditer(code):
             whole_tag = match.group()
