@@ -3,7 +3,7 @@ from distutils.core import setup
 
 
 # django-static doesn't have a version but this setup.py does
-VERSION = '1.0'
+VERSION = '1.1'
 
 README_FILE = open('README.md')
 try:

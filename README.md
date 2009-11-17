@@ -93,12 +93,29 @@ In your template:
 And you get this result:
 
         <img src="http://static.example.com/foo.1247785534.png"/>
+	
+	
+Using Google Closure Compiler
+-----------------------------
+
+If you want to use the [Google Closure
+Compiler](http://code.google.com/closure/compiler/) to optimize your
+Javascript files you first have to download the compiler.jar file and
+make sure your systam can run java. Suppose you download it in
+/usr/local/bin, the set this variable in your settings.py file:
+
+        DJANGO_STATIC_CLOSURE_COMPILER = '/usr/local/bin/compiler.jar'
+        
+If for some reason the compiler chokes on your Javascript it won't
+halt the serving of the file but it won't be whitespace optimized and
+the error will be inserted into the resulting Javascript file as a big
+comment block. 
 
 	
 How to hook this up with nginx
 ------------------------------
 
-xxx
+Working on it
 
 
 	       
