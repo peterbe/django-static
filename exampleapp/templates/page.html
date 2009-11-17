@@ -6,6 +6,11 @@
     <meta http-equiv="content-type" content="text/html;charset=UTF-8" />
     <title>Test page</title>
     <link rel="stylesheet" href="{% slimfile "/css/styles.css" %}" type="text/css" media="all" />
+    {% slimall %}
+      <link rel="stylesheet" href='/css/reset.css' type="text/css"  />
+      <link rel="stylesheet" href="/css/styles.css" type="text/css">
+    {% endslimall %}
+    
     <style type="text/css">
     {% slimcontent "css" %}
     h1, h2, h3 { 

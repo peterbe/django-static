@@ -729,6 +729,16 @@ class TestDjangoStatic(TestCase):
 
         self._test_slimall(filenames, codes)
         
+    def test_slimall_basic_css(self):
+        settings.DEBUG = True
+        settings.DJANGO_STATIC = True
+        
+        filenames = ('/adam.css', '/eve.css')
+        codes = ('body { gender: male; }',
+                 'footer { size: small; }')
+
+        self._test_slimall(filenames, codes)
+
         
     def test_slimall_css_files(self):
         settings.DEBUG = True
@@ -811,7 +821,10 @@ class TestDjangoStatic(TestCase):
         if filenames[0].endswith('.js'):
             self.assertEqual(rendered.count('<script '), 1)
         elif filenames[0].endswith('.css'):
-            distinct_medias = set(css_medias.values())
+            if css_medias is None:
+                distinct_medias = set()
+            else:
+                distinct_medias = set(css_medias.values())
             if 'screen' not in distinct_medias:
                 distinct_medias.add('screen')
             minimum = len(distinct_medias)
@@ -846,6 +859,8 @@ class TestDjangoStatic(TestCase):
                         if x not in filenames_set][0]
             new_file_path = os.path.join(settings.MEDIA_ROOT, new_file)
             
+            filepaths = [os.path.join(settings.MEDIA_ROOT, x) for x in filenames_set]
+            
             # the file shouldn't become a symlink
             if sys.platform != "win32" and len(filenames) > 1:
                 # unless it's just a single file
@@ -860,5 +875,3 @@ class TestDjangoStatic(TestCase):
                 else:
                     self.assertEqual(content.strip(), expect_content.strip())
         
-        
-    

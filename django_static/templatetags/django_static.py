@@ -214,7 +214,8 @@ class StaticFilesNode(template.Node):
             for filename in match.groups():
                 
                 optimize_if_possible = self.optimize_if_possible
-                if optimize_if_possible and filename.endswith('.min.js'):
+                if optimize_if_possible and \
+                  (filename.endswith('.min.js') or filename.endswith('.minified.js')):
                     # Override! Because we simply don't want to run slimmer
                     # on files that have the file extension .min.js
                     optimize_if_possible = False
@@ -275,8 +276,6 @@ class StaticFilesNode(template.Node):
         PREFIX = DJANGO_STATIC_SAVE_PREFIX and DJANGO_STATIC_SAVE_PREFIX or \
           settings.MEDIA_ROOT
         
-            
-
         # If there was a file with the same name there already but with a different
         # timestamp, then delete it
             
@@ -451,8 +450,11 @@ def _static_file(filename,
     
     if optimize_if_possible:
         # Then we expect to be able to modify the content and we will 
-        # definitely need to write a new file. 
-        content = open(filepath).read()
+        # definitely need to write a new file.
+        if is_combined_files:
+            content = new_file_content.getvalue()
+        else:
+            content = open(filepath).read()
         if new_filename.endswith('.js') and has_optimizer(JS):
             content = optimize(content, JS)
         elif new_filename.endswith('.css') and has_optimizer(CSS):
@@ -616,11 +618,11 @@ def _run_closure_compiler(jscode):
     if errors:
         return "/* ERRORS WHEN RUNNING CLOSURE COMPILER\n" + errors + '\n*/\n' + jscode
     
-    print "ERRORS"
-    print errors
+    
+    #print "ERRORS"
+    #print errors
     out = proc.stdout.read()
-    print "OUT"
-    print out
+    #print "OUT"
+    #print out
     return out
                
-    return '// work in progress\nalert("work harder");'
