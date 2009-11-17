@@ -588,11 +588,14 @@ JS = 'js'
 
 def has_optimizer(type_):
     if type_ == CSS:
+        if getattr(settings, 'DJANGO_STATIC_YUI_COMPRESSOR', None):
+            return True
         return slimmer is not None
     elif type_ == JS:
         if getattr(settings, 'DJANGO_STATIC_CLOSURE_COMPILER', None):
             return True
-        # need to look into having Yahoo! YUI thing here
+        if getattr(settings, 'DJANGO_STATIC_YUI_COMPRESSOR', None):
+            return True
         
         return slimmer is not None
     else:
@@ -600,10 +603,14 @@ def has_optimizer(type_):
 
 def optimize(content, type_):
     if type_ == CSS:
+        if getattr(settings, 'DJANGO_STATIC_YUI_COMPRESSOR', None):
+            return _run_yui_compressor(content, type_)
         return css_slimmer(content)
     elif type_ == JS:
         if getattr(settings, 'DJANGO_STATIC_CLOSURE_COMPILER', None):
             return _run_closure_compiler(content)
+        if getattr(settings, 'DJANGO_STATIC_YUI_COMPRESSOR', None):
+            return _run_yui_compressor(content, type_)
         return js_slimmer(content)
     else:
         raise ValueError("Invalid type %r" % type_)
@@ -618,11 +625,17 @@ def _run_closure_compiler(jscode):
     if errors:
         return "/* ERRORS WHEN RUNNING CLOSURE COMPILER\n" + errors + '\n*/\n' + jscode
     
+    return proc.stdout.read()
+
+def _run_yui_compressor(code, type_):
     
-    #print "ERRORS"
-    #print errors
-    out = proc.stdout.read()
-    #print "OUT"
-    #print out
-    return out
-               
+    cmd = "java -jar %s --type=%s" % (settings.DJANGO_STATIC_YUI_COMPRESSOR, type_)
+    proc = Popen(cmd, shell=True, stdout=PIPE, stdin=PIPE, stderr=PIPE)
+    proc.stdin.write(code)
+    proc.stdin.close()
+    errors = proc.stderr.read()
+    if errors:
+        return "/* ERRORS WHEN RUNNING YUI COMPRESSOR\n" + errors + '\n*/\n' + code
+    
+    return proc.stdout.read()
+

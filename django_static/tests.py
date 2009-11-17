@@ -720,6 +720,9 @@ class TestDjangoStatic(TestCase):
         self._test_staticall(filenames, codes)
         
     def test_slimall_basic(self):
+        if slimmer is None:
+            return
+        
         settings.DEBUG = True
         settings.DJANGO_STATIC = True
         
@@ -730,6 +733,9 @@ class TestDjangoStatic(TestCase):
         self._test_slimall(filenames, codes)
         
     def test_slimall_basic_css(self):
+        if slimmer is None:
+            return
+        
         settings.DEBUG = True
         settings.DJANGO_STATIC = True
         
@@ -741,6 +747,9 @@ class TestDjangoStatic(TestCase):
 
         
     def test_slimall_css_files(self):
+        if slimmer is None:
+            return
+        
         settings.DEBUG = True
         settings.DJANGO_STATIC = True
         

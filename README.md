@@ -109,8 +109,21 @@ make sure your systam can run java. Suppose you download it in
 If for some reason the compiler chokes on your Javascript it won't
 halt the serving of the file but it won't be whitespace optimized and
 the error will be inserted into the resulting Javascript file as a big
-comment block. 
+comment block.
 
+Using the YUI Compressor
+------------------------
+
+The [YUI Compressor](http://developer.yahoo.com/yui/compressor/) is
+both a Javascript and CSS compressor which requires a java runtime.
+Just like the Google Closure Compiler, you need to download the jar
+file and then set something like this in your settings.py:
+
+        DJANGO_STATIC_YUI_COMPRESSOR = '/path/to/yuicompressor-2.4.2.jar'
+	
+If you configure the Google Closure Compiler **and** YUI Compressor,
+the Google Closure Compiler will be first choice for Javascript
+compression. 
 	
 How to hook this up with nginx
 ------------------------------
