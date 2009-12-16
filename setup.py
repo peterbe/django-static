@@ -3,13 +3,10 @@ from distutils.core import setup
 
 
 # django-static doesn't have a version but this setup.py does
-VERSION = '1.2'
+VERSION = '1.2.1'
 
-README_FILE = open('README.md')
-try:
-    long_description = README_FILE.read()
-finally:
-    README_FILE.close()
+long_description = open(os.path.join(os.path.dirname(__file__), 
+                                     'README.md')).read()
 
 
 setup(
