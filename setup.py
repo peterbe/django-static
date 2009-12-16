@@ -5,6 +5,7 @@ from distutils.core import setup
 # django-static doesn't have a version but this setup.py does
 VERSION = '1.2.1'
 
+import os
 long_description = open(os.path.join(os.path.dirname(__file__), 
                                      'README.md')).read()
 
