@@ -68,11 +68,11 @@ By default, when `django_static` slims files or makes symlinks with
 timestamps in the filename, it does this into the same directory as
 where the original file is. If you don't like that you can override
 the save location by setting
-`DJANGO_STATIC_SAVE_PREFIX=/tmp/django-static`
+`DJANGO_STATIC_SAVE_PREFIX = "/tmp/django-static"`
 
 If you, for the sake of setting up your nginx/varnish/apache2, want
 change the name the files get you can set
-`DJANGO_STATIC_NAME_PREFIX=/cache-forever` as this will make it easier
+`DJANGO_STATIC_NAME_PREFIX = "/cache-forever"` as this will make it easier
 to write a rewrite rule/regular expression that in
 nginx/varnish/apache2 deliberately sets extra aggressive caching. 
 

@@ -6,7 +6,7 @@ import stat
 from glob import glob
 from collections import defaultdict
 from cStringIO import StringIO
-from subprocess import Popen, PIPE    
+from subprocess import Popen, PIPE
 
 try:
     from slimmer import css_slimmer, guessSyntax, html_slimmer, js_slimmer, xhtml_slimmer
@@ -203,7 +203,6 @@ class StaticFilesNode(template.Node):
           <link href="{% slimfile "/one.css;/two.css" %}"/>
         which we already have routines for doing.
         """
-        
         code = self.nodelist.render(context)
         if not getattr(settings, 'DJANGO_STATIC', False):
             return code
@@ -294,29 +293,11 @@ class StaticFilesNode(template.Node):
             code = "%s%s" % (new_tag, code)
         
         return code
-            
-        
-                 
-                 
     
 _FILE_MAP = {}
 
 referred_css_images_regex = re.compile('url\(([^\)]+)\)')
 
-#def _static_file(filename, 
-#                 optimize_if_possible=False,
-#                 symlink_if_possible=False,
-#                 warn_no_file=True):
-#    from time import time
-#    t0=time()
-#    r = _static_file_timed(filename, optimize_if_possible=optimize_if_possible,
-#                           symlink_if_possible=symlink_if_possible,
-#                           warn_no_file=warn_no_file)
-#    t1=time()
-#    #print (t1-t0), filename
-#    return r
-        
-        
 def _static_file(filename,
                  optimize_if_possible=False,
                  symlink_if_possible=False,
@@ -480,12 +461,45 @@ def _static_file(filename,
         open(new_filepath, 'w').write(content)
     elif symlink_if_possible and not is_combined_files:
         #print "** SYMLINK:", filepath, '-->', new_filepath
-        if os.path.lexists(new_filepath):
-            # since in the other cases we write a new file, it doesn't matter
-            # that the file existed before.
-            # That's not the case with symlinks
-            os.unlink(new_filepath)
-        os.symlink(filepath, new_filepath)
+        
+        # The reason we have to do this strange while loop is that it can 
+        # happen that in between the time it takes to destroy symlink till you 
+        # can create it, another thread or process might be trying to do the
+        # exact same thing with just a fraction of a second difference, thus
+        # making it possible to, at the time of creating the symlink, that it's
+        # already there which will raise an OSError.
+        #
+        # This is quite possible when Django for example starts multiple fcgi 
+        # threads roughly all at the same time. An alternative approach would
+        # be to store the global variable _FILE_MAP in a cache or something 
+        # which would effectively make it thread safe but that has the annoying
+        # disadvantage that it remains in the cache between server restarts and
+        # for a production environment, server restarts very often happen 
+        # because you have upgraded the code (and the static files). So, an
+        # alternative is to use a cache so that thread number 2, number 3 etc
+        # gets the file mappings of the first thread and then let this cache
+        # only last for a brief amount of time. That amount of time would 
+        # basically be equivalent of the time the sys admin or developer would
+        # have to wait between new code deployment and refreshed symlinks for
+        # the static files. That feels convoluted and complex so I've decided
+        # to instead use this rather obtuse while loop which is basically built
+        # to try X number of times. If it still fails after X number of attempts
+        # there's something else wrong with the IO which needs to bubble up.
+        _max_attempts = 10
+        while True:
+            try:
+                if os.path.lexists(new_filepath):
+                    # since in the other cases we write a new file, it doesn't matter
+                    # that the file existed before.
+                    # That's not the case with symlinks
+                    os.unlink(new_filepath)
+        
+                os.symlink(filepath, new_filepath)
+                break
+            except OSError:
+                max_attempts -= 1
+                if max_attempts <= 0:
+                    raise
     else:
         #print "** STORING COMBO:", new_filepath
         open(new_filepath, 'w').write(new_file_content.getvalue())
