@@ -497,8 +497,8 @@ def _static_file(filename,
                 os.symlink(filepath, new_filepath)
                 break
             except OSError:
-                max_attempts -= 1
-                if max_attempts <= 0:
+                _max_attempts -= 1
+                if _max_attempts <= 0:
                     raise
     else:
         #print "** STORING COMBO:", new_filepath
