@@ -123,12 +123,22 @@ file and then set something like this in your settings.py:
 	
 If you configure the Google Closure Compiler **and** YUI Compressor,
 the Google Closure Compiler will be first choice for Javascript
-compression. 
+compression.
+
+Using the slimmer
+-----------------
+
+(slimmer)[http://pypi.python.org/pypi/slimmer/] is an all python
+package that is capable of whitespace optimizing CSS, HTML, XHTML and
+Javascript. It's faster than the YUI Compressor and Google Closure but
+that speed difference is due to the start-stop time of bridging the
+Java files. 
 	
 How to hook this up with nginx
 ------------------------------
 
-Working on it
+Read (this blog entry on
+peterbe.com)[http://www.peterbe.com/plog/serve-your-static-stuff-in-django-with-nginx]
 
 
 	       
