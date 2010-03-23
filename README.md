@@ -128,7 +128,7 @@ compression.
 Using the slimmer
 -----------------
 
-(slimmer)[http://pypi.python.org/pypi/slimmer/] is an all python
+[slimmer](http://pypi.python.org/pypi/slimmer/) is an all python
 package that is capable of whitespace optimizing CSS, HTML, XHTML and
 Javascript. It's faster than the YUI Compressor and Google Closure but
 that speed difference is due to the start-stop time of bridging the
@@ -137,8 +137,8 @@ Java files.
 How to hook this up with nginx
 ------------------------------
 
-Read (this blog entry on
-peterbe.com)[http://www.peterbe.com/plog/serve-your-static-stuff-in-django-with-nginx]
+Read [this blog entry on
+peterbe.com](http://www.peterbe.com/plog/serve-your-static-stuff-in-django-with-nginx)
 
 
 	       
