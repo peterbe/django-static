@@ -633,23 +633,18 @@ def _run_closure_compiler(jscode):
     
     cmd = "java -jar %s" % settings.DJANGO_STATIC_CLOSURE_COMPILER
     proc = Popen(cmd, shell=True, stdout=PIPE, stdin=PIPE, stderr=PIPE)
-    proc.stdin.write(jscode)
-    proc.stdin.close()
-    errors = proc.stderr.read()
-    if errors:
-        return "/* ERRORS WHEN RUNNING CLOSURE COMPILER\n" + errors + '\n*/\n' + jscode
+    (stdoutdata, stderrdata) = proc.communicate(jscode)
+    if stderrdata:
+        return "/* ERRORS WHEN RUNNING CLOSURE COMPILER\n" + stderrdata + '\n*/\n' + jscode
     
-    return proc.stdout.read()
+    return stdoutdata
 
 def _run_yui_compressor(code, type_):
     
     cmd = "java -jar %s --type=%s" % (settings.DJANGO_STATIC_YUI_COMPRESSOR, type_)
     proc = Popen(cmd, shell=True, stdout=PIPE, stdin=PIPE, stderr=PIPE)
-    proc.stdin.write(code)
-    proc.stdin.close()
-    errors = proc.stderr.read()
-    if errors:
-        return "/* ERRORS WHEN RUNNING YUI COMPRESSOR\n" + errors + '\n*/\n' + code
+    (stdoutdata, stderrdata) = proc.communicate(code)
+    if stderrdata:
+        return "/* ERRORS WHEN RUNNING CLOSURE COMPILER\n" + stderrdata + '\n*/\n' + code
     
-    return proc.stdout.read()
-
+    return stdoutdata
