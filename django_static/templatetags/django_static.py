@@ -414,7 +414,8 @@ def _static_file(filename,
             if old_new_filename:
                 old_new_filename = old_new_filename.replace(DJANGO_STATIC_NAME_PREFIX, '')
                 old_new_filepath = _filename2filepath(old_new_filename, PREFIX)
-                os.remove(old_new_filepath)
+                if os.path.isfile(old_new_filepath):
+                    os.remove(old_new_filepath)
 
     new_filepath = _filename2filepath(new_filename, PREFIX)
      
