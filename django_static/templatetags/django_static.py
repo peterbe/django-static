@@ -3,6 +3,7 @@ import os
 import re
 import sys
 import stat
+import shutil
 from glob import glob
 from collections import defaultdict
 from cStringIO import StringIO
@@ -506,7 +507,7 @@ def _static_file(filename,
     else:
         # straight copy
         #print "** STORING COPY:", new_filepath
-        open(new_filepath, 'w').write(open(filepath).read())
+        shutil.copyfile(filepath, new_filepath)
         
     return wrap_up(DJANGO_STATIC_NAME_PREFIX + new_filename)
 
