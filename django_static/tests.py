@@ -883,4 +883,36 @@ class TestDjangoStatic(TestCase):
                     self.assertTrue(len(content.strip()) < len(expect_content.strip()))
                 else:
                     self.assertEqual(content.strip(), expect_content.strip())
+                    
+    def test_stupidity_bug_report_2(self):
+        """Reported on
+        http://github.com/peterbe/django-static/issues/#issue/2
+        
+        This report happens when a user appears to not have any optimization library.
+        This happened on Windows where symlinking it not possible.
+        """
+        
+        
+        
+        settings.MEDIA_URL = "/media/"
+        settings.DJANGO_STATIC = True
+        settings.DJANGO_STATIC_SAVE_PREFIX = os.path.join(settings.MEDIA_ROOT, 'forever')
+        
+        CSS ="""html {
+            background: url('img/bg-top.png') no-repeat center top;
+        }"""
+
+        test_filepath = os.path.join(settings.MEDIA_ROOT, 'css')
+        if not os.path.isdir(test_filepath):
+            os.mkdir(test_filepath)
+        test_filepath = os.path.join(test_filepath, 'base.css')
+        open(test_filepath, 'w').write(CSS)
+        
+        # Because this bug depends on the system being windows and slimmer not
+        # being installed, we'll skip the fancy functions and go straight to the 
+        # ultimate _static_file function
+        result = _static_file('css/base.css', optimize_if_possible=False, symlink_if_possible=False)
+        # expect the result to be something like css/base.1273229589.css
+        self.assertTrue(result.startswith('css/base.'))
+        self.assertTrue(re.findall('base\.\d+\.css', result))
         

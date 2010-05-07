@@ -429,7 +429,6 @@ def _static_file(filename,
     #
     # The caller of this method is responsible for dictacting if we're should
     # slimmer and if we can symlink.
-    
     if optimize_if_possible:
         # Then we expect to be able to modify the content and we will 
         # definitely need to write a new file.
@@ -501,9 +500,13 @@ def _static_file(filename,
                 _max_attempts -= 1
                 if _max_attempts <= 0:
                     raise
-    else:
+    elif is_combined_files:
         #print "** STORING COMBO:", new_filepath
         open(new_filepath, 'w').write(new_file_content.getvalue())
+    else:
+        # straight copy
+        #print "** STORING COPY:", new_filepath
+        open(new_filepath, 'w').write(open(filepath).read())
         
     return wrap_up(DJANGO_STATIC_NAME_PREFIX + new_filename)
 
