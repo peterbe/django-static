@@ -134,6 +134,108 @@ class TestDjangoStatic(TestCase):
         self.assertEqual(rendered, u"/foo.js")
         
         
+    def test_staticall_django_static_off(self):
+        """You put this in the template:
+         {% staticall %}
+         <script src="/js/foo.js"></script>
+         {% endstaticall %}
+        but then you disable DJANGO_STATIC so you should get
+          /js/foo.js
+        """
+        settings.DEBUG = True
+        settings.DJANGO_STATIC = False
+        
+        filename = "/foo.js"
+        test_filepath = settings.MEDIA_ROOT + filename
+        open(test_filepath, 'w').write('samplecode()\n')
+        
+        media_root_files_before = os.listdir(settings.MEDIA_ROOT)
+        template_as_string = """{% load django_static %}
+        {% staticall %}
+        <script src="/foo.js"></script>
+        {% endstaticall %}
+        """
+        template = Template(template_as_string)
+        context = Context()
+        rendered = template.render(context).strip()
+        self.assertEqual(rendered, u'<script src="/foo.js"></script>')
+        
+    def test_staticall_with_already_minified_files(self):
+        """You put this in the template:
+         {% staticall %}
+         <script src="/js/foo.js"></script>
+         {% endstaticall %}
+        but then you disable DJANGO_STATIC so you should get
+          /js/foo.js
+        """
+        if slimmer is None:
+            return
+        
+        settings.DEBUG = False
+        settings.DJANGO_STATIC = True
+        
+        filename = "/foo.js"
+        test_filepath = settings.MEDIA_ROOT + filename
+        open(test_filepath, 'w').write("""
+        function (var) { return var++; }
+        """)
+        
+        filename = "/jquery.min.js"
+        test_filepath = settings.MEDIA_ROOT + filename
+        open(test_filepath, 'w').write("""
+        function jQuery() { return ; }
+        """)
+        
+        media_root_files_before = os.listdir(settings.MEDIA_ROOT)
+        template_as_string = """{% load django_static %}
+        {% slimall %}
+        <script src="/foo.js"></script>
+        <script src="/jquery.min.js"></script>
+        {% endslimall %}
+        """
+        template = Template(template_as_string)
+        context = Context()
+        rendered = template.render(context).strip()
+        regex = re.compile('/foo_jquery\.min\.\d+\.js')
+        self.assertTrue(regex.findall(rendered))
+        self.assertEqual(rendered.count('<script'), 1)
+        self.assertEqual(rendered.count('</script>'), 1)
+        new_filename = regex.findall(rendered)[0]
+        
+        # check that the parts of the content was slimmed
+        self.assertTrue(os.path.basename(new_filename) in \
+         os.listdir(settings.MEDIA_ROOT))
+         
+    def test_staticall_with_image_tags(self):
+        """test when there are image tags in a block of staticall like this:
+            
+        {% staticall %}
+        <img src="one.png">
+        <img src="two.png">
+        {% endstaticall %}
+        
+        And you should expect something like this:
+            
+        <img src="one.1275325988.png">
+        <img src="two.1275325247.png">
+        
+        """
+        
+        open(settings.MEDIA_ROOT + '/img100.gif', 'w').write(_GIF_CONTENT)
+        open(settings.MEDIA_ROOT + '/img200.gif', 'w').write(_GIF_CONTENT)
+        
+        template_as_string = """{% load django_static %}
+        {% staticall %}
+        <img src="img100.gif">
+        <img src="img200.gif">
+        {% endstaticall %}
+        """        
+        template = Template(template_as_string)
+        context = Context()
+        rendered = template.render(context).strip()
+        self.assertTrue(re.findall('img100\.\d+\.gif', rendered))
+        self.assertTrue(re.findall('img200\.\d+\.gif', rendered))
+        
 
     def test_staticfile_single_debug_on(self):
         """Most basic test
@@ -927,3 +1029,330 @@ class TestDjangoStatic(TestCase):
         self.assertTrue(result.startswith('css/base.'))
         self.assertTrue(re.findall('base\.\d+\.css', result))
         
+        
+    def test_slim_content(self):
+        """test the {% slimcontent %}...{% endslimcontent %} tag"""
+        if slimmer is None:
+            return
+        
+        template_as_string = """{% load django_static %}
+        {% slimcontent %}
+        body {
+          font-size: 14pt; 
+        }
+        {% endslimcontent %}
+        """
+        template = Template(template_as_string)
+        context = Context()
+        rendered = template.render(context).strip()
+        expect = u'body{font-size:14pt}'
+        self.assertEqual(rendered, expect)
+        
+        
+        template_as_string = """{% load django_static %}
+        {% slimcontent "js" %}
+        function (var1, var2) {
+          return var1 + var2;
+        }
+        {% endslimcontent %}
+        """
+        template = Template(template_as_string)
+        context = Context()
+        rendered = template.render(context).strip()
+        
+        expect = u'function (var1,var2) {return var1 + var2;}'
+        self.assertEqual(rendered, expect)
+        
+        template_as_string = """{% load django_static %}
+        {% slimcontent "html" %}
+        <ul>
+          <li> one </li>
+        </ul>
+        {% endslimcontent %}
+        """
+        template = Template(template_as_string)
+        context = Context()
+        rendered = template.render(context).strip()
+        
+        expect = u'<ul><li> one </li></ul>'
+        self.assertEqual(rendered, expect)
+        
+        html_rendered = rendered
+        template_as_string = """{% load django_static %}
+        {% slimcontent "xhtml" %}
+        <ul>
+          <li> one </li>
+        </ul>
+        {% endslimcontent %}
+        """
+        template = Template(template_as_string)
+        context = Context()
+        rendered = template.render(context).strip()
+        self.assertEqual(html_rendered, rendered)
+        
+    def test_bad_slimcontent_usage(self):
+        if slimmer is None:
+            return
+        
+        # the format argument has to quoted
+        template_as_string = """{% load django_static %}
+        {% slimcontent html %}
+        <ul>
+          <li> one </li>
+        </ul>
+        {% endslimcontent %}
+        """
+        from django.template import TemplateSyntaxError
+        self.assertRaises(TemplateSyntaxError, Template, template_as_string)
+        
+        # if it's an unrecognized format such as thml or csss then raise a 
+        # template syntax error in runtime
+        template_as_string = """{% load django_static %}
+        {% slimcontent "xxxjunk" %}
+        unguessable content
+        {% endslimcontent %}
+        """
+        template = Template(template_as_string)
+        context = Context()
+        self.assertRaises(TemplateSyntaxError, template.render, context)
+        
+    
+    def test_staticfile_as_context_variable(self):
+        """Use the 'as' operator to define the src name"""
+        
+        settings.DEBUG = True
+        settings.DJANGO_STATIC = True
+        
+        filename = "/foo.js"
+        test_filepath = settings.MEDIA_ROOT + filename
+        open(test_filepath, 'w').write('samplecode()\n')
+        
+        media_root_files_before = os.listdir(settings.MEDIA_ROOT)
+        template_as_string = """{% load django_static %}
+        {% staticfile "/foo.js" as name %}
+        <script src="{{ name }}"></script>
+        """
+        template = Template(template_as_string)
+        context = Context()
+        rendered = template.render(context).strip()
+        self.assertTrue(
+          re.findall('<script src=\"/foo.\d+\.js\"></script>', rendered)
+        )
+        
+        
+    def test_staticfile_css_with_image_urls(self):
+        """staticfile a css file that contains image urls"""
+        settings.DEBUG = False
+        settings.DJANGO_STATIC = True
+        
+        
+        filename = "/medis.css"
+        test_filepath = settings.MEDIA_ROOT + filename
+        open(test_filepath, 'w').write("""
+        h1 {
+          background-image: url('/img1.gif');
+        }
+        h2 {
+          background-image: url("/img2.gif");
+        }
+        h3 {
+          background-image: url(/img3.gif);
+        }
+        h9 {
+          background-image: url(/img9.gif);
+        }        
+        """)
+        
+        open(settings.MEDIA_ROOT + '/img1.gif', 'w').write(_GIF_CONTENT) 
+        open(settings.MEDIA_ROOT + '/img2.gif', 'w').write(_GIF_CONTENT) 
+        open(settings.MEDIA_ROOT + '/img3.gif', 'w').write(_GIF_CONTENT)
+        # deliberately no img9.gif
+        
+        template_as_string = """{% load django_static %}
+        {% slimfile "/medis.css" %}
+        """
+        template = Template(template_as_string)
+        context = Context()
+        rendered = template.render(context).strip()
+        self.assertTrue(re.findall('medis\.\d+\.css', rendered))
+        
+        # open the file an expect that it did staticfile for the images
+        # within
+        new_filename = re.findall('/medis\.\d+\.css', rendered)[0]
+        new_filepath = os.path.join(settings.MEDIA_ROOT, 
+                                    os.path.basename(new_filename))
+        content = open(new_filepath).read()
+        self.assertTrue(re.findall('/img1\.\d+\.gif', content))
+        self.assertTrue(re.findall('/img2\.\d+\.gif', content))
+        self.assertTrue(re.findall('/img3\.\d+\.gif', content))
+        self.assertTrue(re.findall('/img9\.gif', content))
+        
+    def test_shortcut_functions(self):
+        """you can use slimfile() and staticfile() without using template tags"""
+        
+        settings.DEBUG = True
+        settings.DJANGO_STATIC = True
+        
+        filename = "/foo101.js"
+        test_filepath = settings.MEDIA_ROOT + filename
+        open(test_filepath, 'w').write("""
+        function test() {
+          return "done";
+        }
+        """)
+        
+        filename = "/foo102.js"
+        test_filepath = settings.MEDIA_ROOT + filename
+        open(test_filepath, 'w').write("""
+        function test() {
+          return "done";
+        }
+        """)        
+        
+        from django_static.templatetags.django_static import slimfile, staticfile
+        result = staticfile('/foo101.js')
+        self.assertTrue(re.findall('/foo101\.\d+\.js', result))
+
+        result = slimfile('/foo102.js')
+        self.assertTrue(re.findall('/foo102\.\d+\.js', result))
+        if slimmer is not None:
+            # test the content
+            new_filepath = os.path.join(settings.MEDIA_ROOT, 
+                                        os.path.basename(result))
+            content = open(new_filepath).read()
+            self.assertEqual(content, 'function test(){return "done";}')
+            
+    def test_staticfile_on_nonexistant_file(self):
+        """should warn and do nothing if try to staticfile a file that doesn't exist"""
+
+        import django_static.templatetags.django_static
+        #from django_static.templatetags.django_static import staticfile
+        class MockedWarnings:
+            def warn(self, msg, *a, **k):
+                self.msg = msg
+                
+        mocked_warnings = MockedWarnings()
+        django_static.templatetags.django_static.warnings = mocked_warnings
+        result = django_static.templatetags.django_static.staticfile('/tralalal.js')
+        self.assertEqual(result, '/tralalal.js')
+        self.assertTrue(mocked_warnings.msg)
+        self.assertTrue(mocked_warnings.msg.count('tralalal.js'))
+        
+    def test_has_optimizer(self):
+        """test the utility function has_optimizer(type)"""
+        from django_static.templatetags.django_static import has_optimizer
+        
+        # definitely if you have defined a DJANGO_STATIC_YUI_COMPRESSOR
+        settings.DJANGO_STATIC_YUI_COMPRESSOR = 'sure'
+        self.assertTrue(has_optimizer('css'))
+        del settings.DJANGO_STATIC_YUI_COMPRESSOR
+        
+        self.assertEqual(has_optimizer('css'), bool(slimmer))
+        
+        # for javascript
+        settings.DJANGO_STATIC_YUI_COMPRESSOR = 'sure'
+        settings.DJANGO_STATIC_CLOSURE_COMPILER = 'sure'
+
+        self.assertTrue(has_optimizer('js'))
+        del settings.DJANGO_STATIC_CLOSURE_COMPILER
+        self.assertTrue(has_optimizer('js'))
+        del settings.DJANGO_STATIC_YUI_COMPRESSOR
+        
+        self.assertEqual(has_optimizer('js'), bool(slimmer))
+        
+        self.assertRaises(ValueError, has_optimizer, 'uh')
+        
+    def test_running_closure_compiler(self):
+        settings.DJANGO_STATIC_CLOSURE_COMPILER = 'mocked'
+        
+        import django_static.templatetags.django_static
+        optimize = django_static.templatetags.django_static.optimize
+        
+        class MockedPopen:
+            return_error = False
+            
+            def __init__(self, cmd, *a, **__):
+                self.cmd = cmd
+                
+            def communicate(self, code):
+                self.code_in = code
+                if self.return_error:
+                    return '', 'Something wrong!'
+                else:
+                    return code.strip().upper(), None
+                
+        class BadMockedPopen(MockedPopen):
+            return_error = True
+            
+        old_Popen = django_static.templatetags.django_static.Popen
+        django_static.templatetags.django_static.Popen = MockedPopen
+        
+        code = 'function() { return 1 + 2; }'
+        new_code = optimize(code, 'js')
+        self.assertTrue(new_code.startswith('FUNCTION'))
+        
+        django_static.templatetags.django_static.Popen = BadMockedPopen
+        
+        new_code = optimize(code, 'js')
+        self.assertTrue(code in new_code)
+        self.assertTrue(new_code.find('/*') < new_code.find('Something wrong!') < \
+          new_code.find('*/'))
+          
+        del settings.DJANGO_STATIC_CLOSURE_COMPILER
+        django_static.templatetags.django_static.Popen = MockedPopen
+        
+        new_code = optimize(code, 'js')
+        
+        django_static.templatetags.django_static.Popen = old_Popen
+        
+        
+    def test_running_yui_compressor(self):
+        if hasattr(settings, 'DJANGO_STATIC_CLOSURE_COMPILER'):
+            del settings.DJANGO_STATIC_CLOSURE_COMPILER
+            
+        settings.DJANGO_STATIC_YUI_COMPRESSOR = 'mocked'
+        
+        import django_static.templatetags.django_static
+        optimize = django_static.templatetags.django_static.optimize
+        
+        class MockedPopen:
+            return_error = False
+            
+            def __init__(self, cmd, *a, **__):
+                self.cmd = cmd
+                
+            def communicate(self, code):
+                self.code_in = code
+                if self.return_error:
+                    return '', 'Something wrong!'
+                else:
+                    return code.strip().upper(), None
+                
+        class BadMockedPopen(MockedPopen):
+            return_error = True
+            
+        old_Popen = django_static.templatetags.django_static.Popen
+        django_static.templatetags.django_static.Popen = MockedPopen
+        
+        code = 'function() { return 1 + 2; }'
+        new_code = optimize(code, 'js')
+        self.assertTrue(new_code.startswith('FUNCTION'))
+        
+        django_static.templatetags.django_static.Popen = BadMockedPopen
+        
+        new_code = optimize(code, 'js')
+        self.assertTrue(code in new_code)
+        self.assertTrue(new_code.find('/*') < new_code.find('Something wrong!') < \
+          new_code.find('*/'))
+          
+        django_static.templatetags.django_static.Popen = MockedPopen
+
+        code = 'body { font: big; }'
+        new_code = optimize(code, 'css')
+        self.assertTrue(new_code.startswith('BODY'))
+        
+        new_code = optimize(code, 'css')
+        del settings.DJANGO_STATIC_YUI_COMPRESSOR
+        
+        django_static.templatetags.django_static.Popen = old_Popen
+

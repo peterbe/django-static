@@ -3,7 +3,7 @@ from distutils.core import setup
 
 
 # django-static doesn't have a version but this setup.py does
-VERSION = '1.3.5' # remember to match with django_static/__init__.py
+VERSION = '1.3.6' # remember to match with django_static/__init__.py
 
 import os
 long_description = open(os.path.join(os.path.dirname(__file__), 

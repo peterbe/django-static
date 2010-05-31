@@ -8,13 +8,13 @@ from glob import glob
 from collections import defaultdict
 from cStringIO import StringIO
 from subprocess import Popen, PIPE
+import warnings
 
 try:
     from slimmer import css_slimmer, guessSyntax, html_slimmer, js_slimmer, xhtml_slimmer
     slimmer = 'installed'
 except ImportError:
     slimmer = None
-    import warnings
     warnings.warn("slimmer is not installed. (easy_install slimmer)")
 
 if sys.platform == "win32":
@@ -25,6 +25,7 @@ else:
 # django 
 from django import template
 from django.conf import settings
+from django.template import TemplateSyntaxError
 
 register = template.Library()
 
@@ -67,7 +68,9 @@ class SlimContentNode(template.Node):
             return xhtml_slimmer(code)
         elif self.format == 'html':
             return html_slimmer(code)
-            
+        else:
+            raise TemplateSyntaxError("Unrecognized format for slimming content")
+        
         return code
 
     
@@ -127,7 +130,8 @@ def staticfile_node(parser, token, optimize_if_possible=False):
     
     return StaticFileNode(filename,
                           symlink_if_possible=_CAN_SYMLINK,
-                          optimize_if_possible=optimize_if_possible)
+                          optimize_if_possible=optimize_if_possible,
+                          context_name=context_name)
     
 
 class StaticFileNode(template.Node):
@@ -240,6 +244,7 @@ class StaticFilesNode(template.Node):
                 if new_filename != filename: 
                     tag = tag.replace(filename, new_filename)
             return tag
+        
         code = img_regex.sub(image_replacer, code)
         
         new_css_filenames = defaultdict(list)
@@ -388,7 +393,7 @@ def _static_file(filename,
             filepath = _filename2filepath(filename, settings.MEDIA_ROOT)
             if not os.path.isfile(filepath):
                 if warn_no_file:
-                    import warnings; warnings.warn("Can't find file %s" % filepath)
+                    warnings.warn("Can't find file %s" % filepath)
                 return wrap_up(filename)
             
             new_m_time = os.stat(filepath)[stat.ST_MTIME]
