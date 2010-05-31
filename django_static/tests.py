@@ -99,6 +99,17 @@ class TestDjangoStatic(TestCase):
                      '/foobar.js']
         expect = '/foo_bar_foobar.1243893111.js'
         self.assertEqual(_combine_filenames(filenames), expect)
+        
+        
+    def test__combine_long_filenames(self):
+        """test the private function _combine_filenames()"""
+        
+        filenames = ['/jquery_something_%s.js' % x 
+                     for x in range(10)]
+        expect = '/jquery_something_0_jquery_something_1_jq.js'
+        
+        self.assertEqual(_combine_filenames(filenames), expect)
+        
 
     def test_staticfile_django_static_off(self):
         """You put this in the template:

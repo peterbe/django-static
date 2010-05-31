@@ -550,7 +550,7 @@ def _filename2filepath(filename, media_root):
     
     
     
-def _combine_filenames(filenames):
+def _combine_filenames(filenames, max_length=40):
     """Return a new filename to use as the combined file name for a 
     bunch files. 
     A precondition is that they all have the same file extension
@@ -596,9 +596,10 @@ def _combine_filenames(filenames):
     new_filename = '_'.join(names)
     if timestamps:
         new_filename += ".%s" % max(timestamps)
-    
+
+    new_filename = new_filename[:max_length]
     new_filename += extension
-    
+
     return os.path.join(path, new_filename)
 
 
