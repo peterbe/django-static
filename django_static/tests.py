@@ -72,17 +72,15 @@ class TestDjangoStatic(TestCase):
         settings.DJANGO_STATIC_SAVE_PREFIX = _original_DJANGO_STATIC_SAVE_PREFIX
         settings.DJANGO_STATIC_NAME_PREFIX = _original_DJANGO_STATIC_NAME_PREFIX
         settings.DJANGO_STATIC_MEDIA_URL = _original_DJANGO_STATIC_MEDIA_URL
+        settings.DJANGO_STATIC_FILE_PROXY = None
         
         assert settings.MEDIA_ROOT.startswith(gettempdir())
         rmtree(settings.MEDIA_ROOT)
         
         super(TestDjangoStatic, self).tearDown()
+        
 
         
-    #####################
-    ## Next generation 
-    #
-    
 
     def test__combine_filenames(self):
         """test the private function _combine_filenames()"""
@@ -1355,4 +1353,101 @@ class TestDjangoStatic(TestCase):
         del settings.DJANGO_STATIC_YUI_COMPRESSOR
         
         django_static.templatetags.django_static.Popen = old_Popen
+        
+    def test_load_file_proxy(self):
+        
+        settings.DEBUG = False
+        func = django_static.templatetags.django_static._load_file_proxy
+        
+        if hasattr(settings, 'DJANGO_STATIC_FILE_PROXY'):
+            del settings.DJANGO_STATIC_FILE_PROXY
+        
+        proxy_function = func()
+        self.assertEqual(proxy_function.func_name, 'file_proxy_nothing')
+        # this function will always return the first argument
+        self.assertEqual(proxy_function('anything', 'other', shit=123), 'anything')
+        self.assertEqual(proxy_function(None), None) 
+        self.assertEqual(proxy_function(123), 123)
+        self.assertRaises(TypeError, proxy_function)
+        self.assertRaises(TypeError, proxy_function, keyword='argument')
+        
+        # the same would happen if DJANGO_STATIC_FILE_PROXY is defined but 
+        # set to nothing
+        settings.DJANGO_STATIC_FILE_PROXY = None
+        proxy_function = func()
+        self.assertEqual(proxy_function.func_name, 'file_proxy_nothing')
+        
+        # Now set it to something sensible
+        # This becomes the equivalent of `from django_static.tests import fake_file_proxy`
+        # Test that that works to start with
+        from django_static.tests import fake_file_proxy
+        settings.DJANGO_STATIC_FILE_PROXY = 'django_static.tests.fake_file_proxy'
+        
+        proxy_function = func()
+        self.assertNotEqual(proxy_function.func_name, 'file_proxy_nothing')
+        
+        # but that's not enough, now we need to "monkey patch" this usage
+        django_static.templatetags.django_static.file_proxy = proxy_function
+        
+        # now with this set up it will start to proxy and staticfile() or slimfile()
+        
+        open(settings.MEDIA_ROOT + '/img100.gif', 'w').write(_GIF_CONTENT)
+        
+        template_as_string = """{% load django_static %}
+        {% staticfile "/img100.gif" %}
+        """        
+        template = Template(template_as_string)
+        context = Context()
+        rendered = template.render(context).strip()
+        self.assertEqual(_last_fake_file_path[0], rendered)
+        
+        # we can expect that a keyword argument called 'filepath' was used
+        self.assertTrue('filepath' in _last_fake_file_keyword_arguments[0])
+        # the filepath should point to the real file
+        self.assertTrue(os.path.isfile(_last_fake_file_keyword_arguments[0]['filepath']))
+        
+        self.assertTrue('new' in _last_fake_file_keyword_arguments[0])
+        self.assertTrue(_last_fake_file_keyword_arguments[0]['new'])
+        
+        self.assertTrue('changed' in _last_fake_file_keyword_arguments[0])
+        self.assertFalse(_last_fake_file_keyword_arguments[0]['changed'])
+        
+        self.assertTrue('checked' in _last_fake_file_keyword_arguments[0])
+        self.assertTrue(_last_fake_file_keyword_arguments[0]['checked'])
+        
+        # if you run it again, because we're not in debug mode the second time
+        # the file won't be checked if it has changed
+        assert not settings.DEBUG
+        rendered = template.render(context).strip()
+        self.assertEqual(_last_fake_file_path[0], rendered)
+        self.assertFalse(_last_fake_file_keyword_arguments[0]['new'])
+        self.assertFalse(_last_fake_file_keyword_arguments[0]['checked'])
+        self.assertFalse(_last_fake_file_keyword_arguments[0]['changed'])
+        
+        
+        # CONTINUE HERE. TEST WITH DJANGO_STATIC=FALSE
+
+        
+        
+# These have to be mutable so that we can record that they have been used as 
+# global variables. 
+_last_fake_file_path = []
+_last_fake_file_arguments = []
+_last_fake_file_keyword_arguments = []
+
+def fake_file_proxy(path, *a, **k):
+    # reset the global mutables used to check that file_proxy() was called
+    [_last_fake_file_path.pop() for x 
+     in range(len(_last_fake_file_path))]
+    [_last_fake_file_arguments.pop() for x 
+     in range(len(_last_fake_file_arguments))]     
+    [_last_fake_file_keyword_arguments.pop() for x
+     in range(len(_last_fake_file_keyword_arguments))]     
+     
+    _last_fake_file_path.append(path)
+    _last_fake_file_arguments.append(a)
+    _last_fake_file_keyword_arguments.append(k)
+    return path
+
+
 

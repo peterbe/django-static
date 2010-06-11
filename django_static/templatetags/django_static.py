@@ -44,6 +44,31 @@ def staticfile(filename):
     return _static_file(filename,
                         symlink_if_possible=_CAN_SYMLINK,
                         optimize_if_possible=False)
+                        
+
+def _load_file_proxy():
+    # This is a function so that it can be unit tested more easily
+    try:
+        file_proxy_name = settings.DJANGO_STATIC_FILE_PROXY
+        if not file_proxy_name:
+            #warnings.warn("Empty DJANGO_STATIC_FILE_PROXY settings")
+            raise AttributeError
+        from django.utils.importlib import import_module
+        _module_name, _function_name = file_proxy_name.rsplit('.', 1)
+        file_proxy_module = import_module(_module_name)
+        return getattr(file_proxy_module, _function_name)
+        
+    except AttributeError:
+        def file_proxy_nothing(path, *args, **kwargs):
+            return path
+        return file_proxy_nothing
+    
+                        
+file_proxy = _load_file_proxy()
+
+# this defines what keyword arguments you can always expect to get from in the
+# file proxy function you've defined.
+fp_default_kwargs = dict(new=False, changed=False, checked=False)
 
 
 class SlimContentNode(template.Node):
@@ -311,7 +336,7 @@ def _static_file(filename,
     """
     """
     if not getattr(settings, 'DJANGO_STATIC', False):
-        return filename
+        return file_proxy(filename, disabled=True)
     
     DJANGO_STATIC_SAVE_PREFIX = getattr(settings, 'DJANGO_STATIC_SAVE_PREFIX', '')
     DJANGO_STATIC_NAME_PREFIX = getattr(settings, 'DJANGO_STATIC_NAME_PREFIX', '')
@@ -356,7 +381,7 @@ def _static_file(filename,
         else:
             # This is really fast and only happens when NOT in DEBUG mode
             # since it doesn't do any comparison 
-            return wrap_up(new_filename)
+            return file_proxy(wrap_up(new_filename), **fp_default_kwargs)
     else:
         # This is important so that we can know that there wasn't an 
         # old file which will help us know we don't need to delete 
@@ -394,7 +419,7 @@ def _static_file(filename,
             if not os.path.isfile(filepath):
                 if warn_no_file:
                     warnings.warn("Can't find file %s" % filepath)
-                return wrap_up(filename)
+                return file_proxy(wrap_up(filename), **dict(fp_default_kwargs, filepath=filepath))
             
             new_m_time = os.stat(filepath)[stat.ST_MTIME]
             
@@ -514,7 +539,9 @@ def _static_file(filename,
         #print "** STORING COPY:", new_filepath
         shutil.copyfile(filepath, new_filepath)
         
-    return wrap_up(DJANGO_STATIC_NAME_PREFIX + new_filename)
+    return file_proxy(wrap_up(DJANGO_STATIC_NAME_PREFIX + new_filename), 
+                      **dict(fp_default_kwargs, new=True, 
+                             filepath=new_filepath, checked=True))
 
 
 def _mkdir(newdir):
