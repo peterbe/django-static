@@ -93,7 +93,58 @@ In your template:
 And you get this result:
 
         <img src="http://static.example.com/foo.1247785534.png"/>
-	
+
+
+Advanced configuration with DJANGO_STATIC_FILE_PROXY
+----------------------------------------------------
+
+If you enable, in your settings, a variable called
+`DJANGO_STATIC_FILE_PROXY` you can make all static URIs that
+`django_static` generates go though one function. So that you, for
+example, can do something with the information such as uploading to a
+CDN. To get started set the config:
+
+        DJANGO_STATIC_FILE_PROXY = 'mycdn.cdn_uploader_file_proxy'
+        
+This is expected to be the equivalent of this import statement:
+
+        from mycdn import cdn_uploader_file_proxy
+        
+Where `mycdn` is a python module (e.g. `mycdn.py`) and
+`cdn_uploader_file_proxy` is a regular python function. Here's the
+skeleton for that function:
+
+        def cdn_uploader_file_proxy(uri, **kwargs):
+            return uri
+            
+Now, it's inside those keyword arguments that you get the juicy gossip
+about what `django_static` has done with the file. These are the
+pieces of information you will always get inside those keyword
+argments:
+
+        new = False
+        checked = False
+        changed = False
+        notfound = False
+        
+The names hopefully speak for themselves. They become `True` depending
+on what `django_static` has done. For example, if you change your
+`foo.js` and re-run the template it's not `new` but it will be `checked`
+and `changed`. The possibly most important keyword argument you might
+get is `filepath`. This is set whenever `django_static` actually does
+its magic on a static file. So, for example you might write a function
+like this:
+
+        on_my_cdn = {}
+
+        def cdn_uploader_file_proxy(uri, filepath=None, new=False,
+                                    changed=False, **kwargs):
+            if filepath and (new or changed):
+                on_my_cdn[uri] = upload_to_my_cdn(filepath)
+
+            return on_my_cdn.get(uri, uri)
+
+
 	
 Using Google Closure Compiler
 -----------------------------
@@ -132,7 +183,7 @@ Using the slimmer
 package that is capable of whitespace optimizing CSS, HTML, XHTML and
 Javascript. It's faster than the YUI Compressor and Google Closure but
 that speed difference is due to the start-stop time of bridging the
-Java files. 
+Java files.
 	
 How to hook this up with nginx
 ------------------------------

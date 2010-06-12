@@ -597,7 +597,7 @@ class TestDjangoStatic(TestCase):
         filenames = ('/test_X.js', '/test_Y.js')
         codes = ('function (var1, var2)  { return var1+var2; }',
                  'var xxxxx = "yyyy" ;')
-
+        
         self._test_slimfile_multiple(filenames, codes, name_prefix='/infinity')
         
     def test_slimfile_multiple_debug_off_with_name_prefix(self):
@@ -1399,55 +1399,79 @@ class TestDjangoStatic(TestCase):
         template = Template(template_as_string)
         context = Context()
         rendered = template.render(context).strip()
-        self.assertEqual(_last_fake_file_path[0], rendered)
+        self.assertEqual(_last_fake_file_uri, rendered)
         
         # we can expect that a keyword argument called 'filepath' was used
-        self.assertTrue('filepath' in _last_fake_file_keyword_arguments[0])
+        self.assertTrue('filepath' in _last_fake_file_keyword_arguments)
         # the filepath should point to the real file
-        self.assertTrue(os.path.isfile(_last_fake_file_keyword_arguments[0]['filepath']))
+        self.assertTrue(os.path.isfile(_last_fake_file_keyword_arguments['filepath']))
         
-        self.assertTrue('new' in _last_fake_file_keyword_arguments[0])
-        self.assertTrue(_last_fake_file_keyword_arguments[0]['new'])
+        self.assertTrue('new' in _last_fake_file_keyword_arguments)
+        self.assertTrue(_last_fake_file_keyword_arguments['new'])
         
-        self.assertTrue('changed' in _last_fake_file_keyword_arguments[0])
-        self.assertFalse(_last_fake_file_keyword_arguments[0]['changed'])
+        self.assertTrue('changed' in _last_fake_file_keyword_arguments)
+        self.assertFalse(_last_fake_file_keyword_arguments['changed'])
         
-        self.assertTrue('checked' in _last_fake_file_keyword_arguments[0])
-        self.assertTrue(_last_fake_file_keyword_arguments[0]['checked'])
+        self.assertTrue('checked' in _last_fake_file_keyword_arguments)
+        self.assertTrue(_last_fake_file_keyword_arguments['checked'])
         
         # if you run it again, because we're not in debug mode the second time
         # the file won't be checked if it has changed
         assert not settings.DEBUG
         rendered = template.render(context).strip()
-        self.assertEqual(_last_fake_file_path[0], rendered)
-        self.assertFalse(_last_fake_file_keyword_arguments[0]['new'])
-        self.assertFalse(_last_fake_file_keyword_arguments[0]['checked'])
-        self.assertFalse(_last_fake_file_keyword_arguments[0]['changed'])
+        self.assertEqual(_last_fake_file_uri, rendered)
+        self.assertFalse(_last_fake_file_keyword_arguments['new'])
+        self.assertFalse(_last_fake_file_keyword_arguments['checked'])
+        self.assertFalse(_last_fake_file_keyword_arguments['changed'])
         
+        # What if DJANGO_STATIC = False
+        # It should still go through the configured file proxy function
+        settings.DJANGO_STATIC = False
+        rendered = template.render(context).strip()
+        assert rendered == '/img100.gif'
+        self.assertFalse(_last_fake_file_keyword_arguments['checked'])
+        self.assertFalse(_last_fake_file_keyword_arguments['changed'])
         
-        # CONTINUE HERE. TEST WITH DJANGO_STATIC=FALSE
-
+    def test_file_proxy_with_name_prefix(self):
+        # Test it with a name prefix
+        settings.DEBUG = True
+        settings.DJANGO_STATIC = True
+        settings.DJANGO_STATIC_NAME_PREFIX = '/love-cache'
+        
+        open(settings.MEDIA_ROOT + '/imgXXX.gif', 'w').write(_GIF_CONTENT)
+        
+        # set up the file proxy
+        settings.DJANGO_STATIC_FILE_PROXY = 'django_static.tests.fake_file_proxy'
+        func = django_static.templatetags.django_static._load_file_proxy
+        proxy_function = func()
+        # but that's not enough, now we need to "monkey patch" this usage
+        django_static.templatetags.django_static.file_proxy = proxy_function
+        
+        template_as_string = """{% load django_static %}
+        {% staticfile "/imgXXX.gif" %}
+        """        
+        template = Template(template_as_string)
+        context = Context()
+        rendered = template.render(context).strip()
+        
+        self.assertEqual(_last_fake_file_uri, rendered)
+        self.assertTrue(_last_fake_file_keyword_arguments['new'])
+        self.assertTrue('filepath' in _last_fake_file_keyword_arguments)
         
         
 # These have to be mutable so that we can record that they have been used as 
 # global variables. 
-_last_fake_file_path = []
-_last_fake_file_arguments = []
-_last_fake_file_keyword_arguments = []
+_last_fake_file_uri = None
+_last_fake_file_keyword_arguments = None
 
-def fake_file_proxy(path, *a, **k):
+def fake_file_proxy(uri, **k):
     # reset the global mutables used to check that file_proxy() was called
-    [_last_fake_file_path.pop() for x 
-     in range(len(_last_fake_file_path))]
-    [_last_fake_file_arguments.pop() for x 
-     in range(len(_last_fake_file_arguments))]     
-    [_last_fake_file_keyword_arguments.pop() for x
-     in range(len(_last_fake_file_keyword_arguments))]     
-     
-    _last_fake_file_path.append(path)
-    _last_fake_file_arguments.append(a)
-    _last_fake_file_keyword_arguments.append(k)
-    return path
+    global _last_fake_file_uri
+    global _last_fake_file_keyword_arguments
+    
+    _last_fake_file_uri = uri
+    _last_fake_file_keyword_arguments = k
+    return uri
 
 
 

@@ -59,8 +59,8 @@ def _load_file_proxy():
         return getattr(file_proxy_module, _function_name)
         
     except AttributeError:
-        def file_proxy_nothing(path, *args, **kwargs):
-            return path
+        def file_proxy_nothing(uri, *args, **kwargs):
+            return uri
         return file_proxy_nothing
     
                         
@@ -68,7 +68,7 @@ file_proxy = _load_file_proxy()
 
 # this defines what keyword arguments you can always expect to get from in the
 # file proxy function you've defined.
-fp_default_kwargs = dict(new=False, changed=False, checked=False)
+fp_default_kwargs = dict(new=False, changed=False, checked=False, notfound=False)
 
 
 class SlimContentNode(template.Node):
@@ -370,7 +370,7 @@ def _static_file(filename,
     new_filename, m_time = _FILE_MAP.get(map_key, (None, None))
     
     # we might already have done a conversion but the question is
-    # if the javascript or css file has changed. This we only want
+    # if the file has changed. This we only want
     # to bother with when in DEBUG mode because it adds one more 
     # unnecessary operation.
     if new_filename:
@@ -419,7 +419,8 @@ def _static_file(filename,
             if not os.path.isfile(filepath):
                 if warn_no_file:
                     warnings.warn("Can't find file %s" % filepath)
-                return file_proxy(wrap_up(filename), **dict(fp_default_kwargs, filepath=filepath))
+                return file_proxy(wrap_up(filename), 
+                                  **dict(fp_default_kwargs, filepath=filepath, notfound=True))
             
             new_m_time = os.stat(filepath)[stat.ST_MTIME]
             
@@ -430,7 +431,7 @@ def _static_file(filename,
                 m_time = None
             else:
                 # ...and it hasn't changed!
-                return wrap_up(old_new_filename)
+                return file_proxy(wrap_up(old_new_filename))
             
         if not m_time:
             # We did not have the filename in the map OR it has changed
