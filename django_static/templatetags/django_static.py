@@ -672,18 +672,32 @@ def _run_closure_compiler(jscode):
     
     cmd = "java -jar %s" % settings.DJANGO_STATIC_CLOSURE_COMPILER
     proc = Popen(cmd, shell=True, stdout=PIPE, stdin=PIPE, stderr=PIPE)
-    (stdoutdata, stderrdata) = proc.communicate(jscode)
+    try:
+        (stdoutdata, stderrdata) = proc.communicate(jscode)
+    except OSError, msg:
+        # see comment on OSErrors inside _run_yui_compressor()
+        stderrdata = \
+          "OSError: %s. Try again by making a small change and reload" % msg
     if stderrdata:
-        return "/* ERRORS WHEN RUNNING CLOSURE COMPILER\n" + stderrdata + '\n*/\n' + jscode
-    
+        return "/* ERRORS WHEN RUNNING CLOSURE COMPILER\n" + stderrdata + '\n*/\n' + jscode 
+   
     return stdoutdata
 
 def _run_yui_compressor(code, type_):
     
     cmd = "java -jar %s --type=%s" % (settings.DJANGO_STATIC_YUI_COMPRESSOR, type_)
     proc = Popen(cmd, shell=True, stdout=PIPE, stdin=PIPE, stderr=PIPE)
-    (stdoutdata, stderrdata) = proc.communicate(code)
+    try:
+        (stdoutdata, stderrdata) = proc.communicate(code)
+    except OSError, msg:
+        # Sometimes, for unexplicable reasons, you get a Broken pipe when
+        # running the popen instance. It's always non-deterministic problem
+        # so it probably has something to do with concurrency or something
+        # really low level. 
+        stderrdata = \
+          "OSError: %s. Try again by making a small change and reload" % msg
+        
     if stderrdata:
-        return "/* ERRORS WHEN RUNNING CLOSURE COMPILER\n" + stderrdata + '\n*/\n' + code
+        return "/* ERRORS WHEN RUNNING YUI COMPRESSOR\n" + stderrdata + '\n*/\n' + code
     
     return stdoutdata
