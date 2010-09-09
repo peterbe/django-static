@@ -10,6 +10,13 @@ from cStringIO import StringIO
 from subprocess import Popen, PIPE
 import warnings
 
+# django 
+from django import template
+from django.conf import settings
+from django.template import TemplateSyntaxError
+
+register = template.Library()
+
 try:
     from slimmer import css_slimmer, guessSyntax, html_slimmer, js_slimmer, xhtml_slimmer
     slimmer = 'installed'
@@ -21,13 +28,17 @@ if sys.platform == "win32":
     _CAN_SYMLINK = False
 else:
     _CAN_SYMLINK = True
+_CAN_SYMLINK = getattr(settings, "DJANGO_STATIC_USE_SYMLINK", _CAN_SYMLINK)
 
-# django 
-from django import template
-from django.conf import settings
-from django.template import TemplateSyntaxError
+DEBUG = settings.DEBUG
+DJANGO_STATIC_SAVE_PREFIX = getattr(settings, 'DJANGO_STATIC_SAVE_PREFIX', '')
+DJANGO_STATIC_NAME_PREFIX = getattr(settings, 'DJANGO_STATIC_NAME_PREFIX', '')
+MEDIA_URL = getattr(settings, "DJANGO_STATIC_MEDIA_URL", None)
+MEDIA_ROOTS = getattr(settings, "DJANGO_STATIC_MEDIA_ROOTS",
+        [ settings.MEDIA_ROOT ])
 
-register = template.Library()
+# Wheree the mapping filename -> annotated_filename is kept
+_FILE_MAP = {}
 
 ## These two methods are put here if someone wants to access the django_static
 ## functionality from code rather than from a django template
@@ -44,7 +55,7 @@ def staticfile(filename):
     return _static_file(filename,
                         symlink_if_possible=_CAN_SYMLINK,
                         optimize_if_possible=False)
-                        
+                
 
 def _load_file_proxy():
     # This is a function so that it can be unit tested more easily
@@ -57,13 +68,10 @@ def _load_file_proxy():
         _module_name, _function_name = file_proxy_name.rsplit('.', 1)
         file_proxy_module = import_module(_module_name)
         return getattr(file_proxy_module, _function_name)
-        
     except AttributeError:
         def file_proxy_nothing(uri, *args, **kwargs):
             return uri
         return file_proxy_nothing
-    
-                        
 file_proxy = _load_file_proxy()
 
 # this defines what keyword arguments you can always expect to get from in the
@@ -72,16 +80,16 @@ fp_default_kwargs = dict(new=False, changed=False, checked=False, notfound=False
 
 
 class SlimContentNode(template.Node):
-    
+
     def __init__(self, nodelist, format=None):
         self.nodelist = nodelist
         self.format = format
-        
+
     def render(self, context):
         code = self.nodelist.render(context)
         if slimmer is None:
             return code
-        
+
         if self.format not in ('css','js','html','xhtml'):
             self.format = guessSyntax(code)
             
@@ -95,16 +103,16 @@ class SlimContentNode(template.Node):
             return html_slimmer(code)
         else:
             raise TemplateSyntaxError("Unrecognized format for slimming content")
-        
+
         return code
 
-    
+
 
 @register.tag(name='slimcontent')
 def do_slimcontent(parser, token):
     nodelist = parser.parse(('endslimcontent',))
     parser.delete_first_token()
-    
+
     _split = token.split_contents()
     format = ''
     if len(_split) > 1:
@@ -112,7 +120,7 @@ def do_slimcontent(parser, token):
         if not (format[0] == format[-1] and format[0] in ('"', "'")):
             raise template.TemplateSyntaxError, \
                           "%r tag's argument should be in quotes" % tag_name
-                          
+                      
     return SlimContentNode(nodelist, format[1:-1])
 
 
@@ -144,13 +152,13 @@ def staticfile_node(parser, token, optimize_if_possible=False):
     """
     args = token.split_contents()
     tag = args[0]
-    
+
     if len(args) == 4 and args[-2] == 'as':
         context_name = args[-1]
         args = args[:-2]
     else:
         context_name = None
-    
+        
     filename = parser.compile_filter(args[1])
     
     return StaticFileNode(filename,
@@ -206,10 +214,9 @@ def do_staticallfiles(parser, token):
 
 
 
-scripts_regex = re.compile('<script [^>]*src=["\']([^"\']+)["\'].*?</script>')
-styles_regex = re.compile('<link.*?href=["\']([^"\']+)["\'].*?>', re.M|re.DOTALL)
-img_regex = re.compile('<img.*?src=["\']([^"\']+)["\'].*?>', re.M|re.DOTALL)
-
+SCRIPTS_REGEX = re.compile('<script [^>]*src=["\']([^"\']+)["\'].*?</script>')
+STYLES_REGEX = re.compile('<link.*?href=["\']([^"\']+)["\'].*?>', re.M|re.DOTALL)
+IMG_REGEX = re.compile('<img.*?src=["\']([^"\']+)["\'].*?>', re.M|re.DOTALL)
 
 class StaticFilesNode(template.Node):
     """find all static files in the wrapped code and run staticfile (or 
@@ -238,7 +245,7 @@ class StaticFilesNode(template.Node):
             return code
         
         new_js_filenames = []
-        for match in scripts_regex.finditer(code):
+        for match in SCRIPTS_REGEX.finditer(code):
             whole_tag = match.group()
             for filename in match.groups():
                 
@@ -270,14 +277,14 @@ class StaticFilesNode(template.Node):
                     tag = tag.replace(filename, new_filename)
             return tag
         
-        code = img_regex.sub(image_replacer, code)
+        code = IMG_REGEX.sub(image_replacer, code)
         
         new_css_filenames = defaultdict(list)
         
         # It's less trivial with CSS because we can't combine those that are
         # of different media
         media_regex = re.compile('media=["\']([^"\']+)["\']')
-        for match in styles_regex.finditer(code):
+        for match in STYLES_REGEX.finditer(code):
             whole_tag = match.group()
             try:
                 media_type = media_regex.findall(whole_tag)[0]
@@ -298,19 +305,6 @@ class StaticFilesNode(template.Node):
                                optimize_if_possible=self.optimize_if_possible,
                                symlink_if_possible=self.symlink_if_possible)
                 
-        # When we make up this new file we have to understand where to write it
-        try:
-            DJANGO_STATIC_SAVE_PREFIX = settings.DJANGO_STATIC_SAVE_PREFIX
-        except AttributeError:
-            DJANGO_STATIC_SAVE_PREFIX = ''
-        PREFIX = DJANGO_STATIC_SAVE_PREFIX and DJANGO_STATIC_SAVE_PREFIX or \
-          settings.MEDIA_ROOT
-        
-        # If there was a file with the same name there already but with a different
-        # timestamp, then delete it
-            
-        MEDIA_URL = getattr(settings, 'DJANGO_STATIC_MEDIA_URL', None)
-        DJANGO_STATIC_NAME_PREFIX = getattr(settings, 'DJANGO_STATIC_NAME_PREFIX', '')
             
         if new_js_filename:
             # Now is the time to apply the name prefix if there is one
@@ -325,9 +319,7 @@ class StaticFilesNode(template.Node):
         
         return code
     
-_FILE_MAP = {}
-
-referred_css_images_regex = re.compile('url\(([^\)]+)\)')
+REFERRED_CSS_IMAGES_REGEX = re.compile('url\(([^\)]+)\)')
 
 def _static_file(filename,
                  optimize_if_possible=False,
@@ -338,18 +330,6 @@ def _static_file(filename,
     if not getattr(settings, 'DJANGO_STATIC', False):
         return file_proxy(filename, disabled=True)
     
-    DJANGO_STATIC_SAVE_PREFIX = getattr(settings, 'DJANGO_STATIC_SAVE_PREFIX', '')
-    DJANGO_STATIC_NAME_PREFIX = getattr(settings, 'DJANGO_STATIC_NAME_PREFIX', '')
-
-    DEBUG = settings.DEBUG
-    PREFIX = DJANGO_STATIC_SAVE_PREFIX and DJANGO_STATIC_SAVE_PREFIX or \
-      settings.MEDIA_ROOT
-    
-    try:
-        MEDIA_URL = settings.DJANGO_STATIC_MEDIA_URL
-    except AttributeError:
-        MEDIA_URL = None
-        
     def wrap_up(filename):
         if MEDIA_URL:
             return MEDIA_URL + filename
@@ -397,9 +377,10 @@ def _static_file(filename,
             extension = None
             filenames = []
             for each in filename:
-                filepath = _filename2filepath(each, settings.MEDIA_ROOT)
-                if not os.path.isfile(filepath):
-                    raise OSError(filepath)
+                filepath, path = _find_filepath_in_roots(each)
+                if not filepath:
+                    raise OSError("Failed to find %s in %s" % (each,
+                        ",".join(MEDIA_ROOTS)))
                 
                 if extension:
                     if os.path.splitext(filepath)[1] != extension:
@@ -411,14 +392,15 @@ def _static_file(filename,
                 new_file_content.write(open(filepath, 'r').read().strip())
                 new_file_content.write('\n')
             
-            filename = _combine_filenames(filename)
+            filename, path = _combine_filenames(filename)
             new_m_time = max(each_m_times)
             
         else:
-            filepath = _filename2filepath(filename, settings.MEDIA_ROOT)
-            if not os.path.isfile(filepath):
+            filepath, path = _find_filepath_in_roots(filename)
+            if not filepath:
                 if warn_no_file:
-                    warnings.warn("Can't find file %s" % filepath)
+                    msg = "Can't find file %s in %s" % (filename, ",".join(MEDIA_ROOTS))
+                    warnings.warn(msg)
                 return file_proxy(wrap_up(filename), 
                                   **dict(fp_default_kwargs, filepath=filepath, notfound=True))
             
@@ -445,11 +427,19 @@ def _static_file(filename,
             _FILE_MAP[map_key] = fileinfo
             if old_new_filename:
                 old_new_filename = old_new_filename.replace(DJANGO_STATIC_NAME_PREFIX, '')
-                old_new_filepath = _filename2filepath(old_new_filename, PREFIX)
+                old_new_filepath = _filename2filepath(old_new_filename,
+                        DJANGO_STATIC_SAVE_PREFIX or path)
+                if not os.path.isdir(os.path.dirname(old_new_filepath)):
+                    _mkdir(os.path.dirname(old_new_filepath))
+        
                 if os.path.isfile(old_new_filepath):
                     os.remove(old_new_filepath)
 
-    new_filepath = _filename2filepath(new_filename, PREFIX)
+    new_filepath = _filename2filepath(new_filename,
+            DJANGO_STATIC_SAVE_PREFIX or path)
+    if not os.path.isdir(os.path.dirname(new_filepath)):
+        _mkdir(os.path.dirname(new_filepath))
+        
      
     # Files are either slimmered or symlinked or just copied. Basically, only
     # .css and .js can be slimmered but not all are. For example, an already
@@ -485,7 +475,7 @@ def _static_file(filename,
                 new_filename = _static_file(filename, symlink_if_possible=symlink_if_possible,
                                             warn_no_file=DEBUG and True or False)
                 return match.group().replace(filename, new_filename)
-            content = referred_css_images_regex.sub(replacer, content)
+            content = REFERRED_CSS_IMAGES_REGEX.sub(replacer, content)
         elif slimmer:
             raise ValueError(
               "Unable to slimmer file %s. Unrecognized extension" % new_filename)
@@ -564,6 +554,14 @@ def _mkdir(newdir):
             os.mkdir(newdir)
             
             
+def _find_filepath_in_roots(filename):
+    """Look for filename in all MEDIA_ROOTS, and return the first one found."""
+    for root in MEDIA_ROOTS:
+        filepath = _filename2filepath(filename, root)
+        if os.path.isfile(filepath):
+            return filepath, root
+    return None, None
+
 def _filename2filepath(filename, media_root):
     # The reason we're doing this is because the templates will 
     # look something like this:
@@ -575,9 +573,6 @@ def _filename2filepath(filename, media_root):
         path = os.path.join(media_root, filename[1:])
     else:
         path = os.path.join(media_root, filename)
-        
-    if not os.path.isdir(os.path.dirname(path)):
-        _mkdir(os.path.dirname(path))
         
     return path
     
@@ -633,7 +628,7 @@ def _combine_filenames(filenames, max_length=40):
     new_filename = new_filename[:max_length]
     new_filename += extension
 
-    return os.path.join(path, new_filename)
+    return os.path.join(path, new_filename), path
 
 
 CSS = 'css'
