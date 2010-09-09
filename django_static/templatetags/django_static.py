@@ -27,8 +27,7 @@ except ImportError:
 if sys.platform == "win32":
     _CAN_SYMLINK = False
 else:
-    _CAN_SYMLINK = True
-_CAN_SYMLINK = getattr(settings, "DJANGO_STATIC_USE_SYMLINK", _CAN_SYMLINK)
+    _CAN_SYMLINK = getattr(settings, "DJANGO_STATIC_USE_SYMLINK", True)
 
 DEBUG = settings.DEBUG
 DJANGO_STATIC_SAVE_PREFIX = getattr(settings, 'DJANGO_STATIC_SAVE_PREFIX', '')
