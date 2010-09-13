@@ -94,6 +94,13 @@ And you get this result:
 
         <img src="http://static.example.com/foo.1247785534.png"/>
 
+By default django_static will look for source files in `MEDIA_ROOT`,
+but it is possible tell django_static to look in all directories listed
+in `DJANGO_STATIC_MEDIA_ROOTS`. The first match will be used.
+
+There is also a setting `DJANGO_STATIC_USE_SYMLINK` that can be set to
+`False` to force django_static to copy files instead of symlinking them.
+
 
 Advanced configuration with DJANGO_STATIC_FILE_PROXY
 ----------------------------------------------------
