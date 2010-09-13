@@ -374,7 +374,6 @@ def _static_file(filename,
             new_file_content = StringIO()
             each_m_times = []
             extension = None
-            filenames = []
             for each in filename:
                 filepath, path = _find_filepath_in_roots(each)
                 if not filepath:
@@ -391,7 +390,11 @@ def _static_file(filename,
                 new_file_content.write(open(filepath, 'r').read().strip())
                 new_file_content.write('\n')
             
-            filename, path = _combine_filenames(filename)
+            filename = _combine_filenames(filename)
+            # Set the root path of the combined files to the first entry
+            # in the MEDIA_ROOTS list. This way django-static behaves a
+            # little more predictible.
+            path = MEDIA_ROOTS[0] 
             new_m_time = max(each_m_times)
             
         else:
@@ -627,7 +630,7 @@ def _combine_filenames(filenames, max_length=40):
     new_filename = new_filename[:max_length]
     new_filename += extension
 
-    return os.path.join(path, new_filename), path
+    return os.path.join(path, new_filename)
 
 
 CSS = 'css'

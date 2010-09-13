@@ -28,6 +28,18 @@ except ImportError:
 from django.conf import settings 
 from django.template import Template
 from django.template import Context
+import django.template
+
+# Monkey patch the {% load ... %} tag to always reload our code
+# so it can pick up any changes to "settings.py" that happens during
+# unit tests
+_original_get_library = django.template.get_library
+def get_library_wrapper(library_name):
+    if library_name == "django_static":
+        reload(sys.modules['django_static.templatetags.django_static'])
+    return _original_get_library(library_name)
+django.template.get_library = get_library_wrapper
+reload(sys.modules['django.template.defaulttags'])
         
 _GIF_CONTENT = 'R0lGODlhBgAJAJEDAGmaywBUpv///////yH5BAEAAAMALAAAAAAGAAkAAAIRnBFwITEoGoyBRWnb\ns27rBRQAOw==\n'
 _GIF_CONTENT_DIFFERENT = 'R0lGODlhBAABAJEAANHV3ufr7qy9xGyiyCH5BAAAAAAALAAAAAAEAAEAAAIDnBAFADs=\n'
@@ -1022,6 +1034,7 @@ class TestDjangoStatic(TestCase):
         # Because this bug depends on the system being windows and slimmer not
         # being installed, we'll skip the fancy functions and go straight to the 
         # ultimate _static_file function
+        reload(sys.modules['django_static.templatetags.django_static'])
         result = _static_file('css/base.css', optimize_if_possible=False, symlink_if_possible=False)
         # expect the result to be something like css/base.1273229589.css
         self.assertTrue(result.startswith('css/base.'))
@@ -1207,6 +1220,7 @@ class TestDjangoStatic(TestCase):
         }
         """)        
         
+        reload(sys.modules['django_static.templatetags.django_static'])
         from django_static.templatetags.django_static import slimfile, staticfile
         result = staticfile('/foo101.js')
         self.assertTrue(re.findall('/foo101\.\d+\.js', result))
