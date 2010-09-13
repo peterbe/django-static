@@ -62,12 +62,14 @@ class TestDjangoStatic(TestCase):
         self.__added_filepaths.append(filepath)
         
     def setUp(self):
+        self.__added_dirs = []
         self.__added_filepaths = []
         #if not os.path.isdir(TEST_MEDIA_ROOT):
         #    os.mkdir(TEST_MEDIA_ROOT)
             
         # All tests is going to run off this temp directory
         settings.MEDIA_ROOT = mkdtemp()
+        self.__added_dirs.append(settings.MEDIA_ROOT)
         
         # Disable Closure Compiler if set
         settings.DJANGO_STATIC_CLOSURE_COMPILER = None
@@ -85,9 +87,12 @@ class TestDjangoStatic(TestCase):
         settings.DJANGO_STATIC_NAME_PREFIX = _original_DJANGO_STATIC_NAME_PREFIX
         settings.DJANGO_STATIC_MEDIA_URL = _original_DJANGO_STATIC_MEDIA_URL
         settings.DJANGO_STATIC_FILE_PROXY = None
+        if hasattr(settings, "DJANGO_STATIC_MEDIA_ROOTS"):
+            del settings.DJANGO_STATIC_MEDIA_ROOTS
         
-        assert settings.MEDIA_ROOT.startswith(gettempdir())
-        rmtree(settings.MEDIA_ROOT)
+        for dir in self.__added_dirs:
+            if dir.startswith(gettempdir()):
+                rmtree(dir)
         
         super(TestDjangoStatic, self).tearDown()
         
@@ -245,6 +250,97 @@ class TestDjangoStatic(TestCase):
         rendered = template.render(context).strip()
         self.assertTrue(re.findall('img100\.\d+\.gif', rendered))
         self.assertTrue(re.findall('img200\.\d+\.gif', rendered))
+        
+    def _assertProcessedFileExists(self, dir, org_name):
+        head, tail = os.path.splitext(org_name)
+        filename_re = re.compile(r"^%s\.\d+\%s$" % (head, tail))
+        files = os.listdir(dir)
+        match = [ f for f in files if filename_re.match(f) ]
+        self.assertEqual(len(match), 1)
+
+    def test_static_in_multiple_media_roots(self):
+        """Test that static files in multiple media roots works.
+            
+        {% staticall %}
+        <img src="one.png">
+        <img src="two.png">
+        {% endstaticall %}
+        
+        The source files are stored in different MEDIA_ROOTs.
+        First, run without DJANGO_STATIC_SAVE_PREFIX set and verify
+        that the files are stored in the source directories.
+        Then, set DJANGO_STATIC_SAVE_PREFIX and verify that the
+        processed files are stored there.
+        """
+        
+        dir1 = settings.MEDIA_ROOT
+        dir2 = mkdtemp()
+        self.__added_dirs.append(dir2)
+        settings.DJANGO_STATIC_MEDIA_ROOTS = [ dir1, dir2 ]
+        dir3 = mkdtemp()
+        self.__added_dirs.append(dir3)
+
+        open(dir1 + '/img100.gif', 'w').write(_GIF_CONTENT)
+        open(dir2 + '/img200.gif', 'w').write(_GIF_CONTENT)
+        
+        template_as_string = """{% load django_static %}
+        {% staticall %}
+        <img src="img100.gif">
+        <img src="img200.gif">
+        {% endstaticall %}
+        """        
+        template = Template(template_as_string)
+        context = Context()
+        template.render(context).strip()
+        self._assertProcessedFileExists(dir1, "img100.gif")
+        self._assertProcessedFileExists(dir2, "img200.gif")
+
+        settings.DJANGO_STATIC_SAVE_PREFIX = dir3
+        template = Template(template_as_string)
+        template.render(context).strip()
+        self._assertProcessedFileExists(dir3, "img100.gif")
+        self._assertProcessedFileExists(dir3, "img200.gif")
+        
+
+    def test_combined_files_in_multiple_media_roots(self):
+        """Test that static files in multiple media roots works.
+            
+        {% staticall %}
+        <img src="one.png">
+        <img src="two.png">
+        {% endstaticall %}
+        
+        The source files are stored in different MEDIA_ROOTs.
+        First, run without DJANGO_STATIC_SAVE_PREFIX set and verify
+        that the files are stored in the source directories.
+        Then, set DJANGO_STATIC_SAVE_PREFIX and verify that the
+        processed files are stored there.
+        """
+        
+        dir1 = settings.MEDIA_ROOT
+        dir2 = mkdtemp()
+        self.__added_dirs.append(dir2)
+        settings.DJANGO_STATIC_MEDIA_ROOTS = [ dir1, dir2 ]
+        dir3 = mkdtemp()
+        self.__added_dirs.append(dir3)
+
+        open(dir1 + '/test_A.js', 'w').write("var A=1;")
+        open(dir2 + '/test_B.js', 'w').write("var B=1;")
+        
+        template_as_string = """{% load django_static %}
+        {% slimfile "/test_A.js;/test_B.js" %}
+        """        
+        template = Template(template_as_string)
+        context = Context()
+        template.render(context).strip()
+        # The result will always be saved in the first dir in
+        # MEDIA_ROOTS unless DJANGO_STATIC_SAVE_PREFIX is set
+        self._assertProcessedFileExists(dir1, "test_A_test_B.js")
+
+        settings.DJANGO_STATIC_SAVE_PREFIX = dir3
+        template = Template(template_as_string)
+        template.render(context).strip()
+        self._assertProcessedFileExists(dir3, "test_A_test_B.js")
         
 
     def test_staticfile_single_debug_on(self):
