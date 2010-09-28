@@ -16,4 +16,8 @@ media/images/icon3.*.png
 media/javascript/shit_code.*.js
 media/css/reset_styles.*.css
 media/css/reset.*.css
+coverage_report/fcgi_settings.py
+kill_fcgi.sh
+run_fcgi.sh
 coverage_report/
+fcgi_settings.py
