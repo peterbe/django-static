@@ -46,10 +46,18 @@ _GIF_CONTENT_DIFFERENT = 'R0lGODlhBAABAJEAANHV3ufr7qy9xGyiyCH5BAAAAAAALAAAAAAEAA
 
 #TEST_MEDIA_ROOT = os.path.join(gettempdir(), 'fake_media_root')
 #_original_MEDIA_ROOT = settings.MEDIA_ROOT
-_original_DEBUG = settings.DEBUG
-_original_DJANGO_STATIC_SAVE_PREFIX = getattr(settings, 'DJANGO_STATIC_SAVE_PREFIX', '')
-_original_DJANGO_STATIC_NAME_PREFIX = getattr(settings, 'DJANGO_STATIC_NAME_PREFIX', '')
-_original_DJANGO_STATIC_MEDIA_URL = getattr(settings, 'DJANGO_STATIC_MEDIA_URL', '')
+_MISSING = id(get_library_wrapper) # get semi-random mark
+_saved_settings = []
+for name in [ "DEBUG",
+              "DJANGO_STATIC",
+              "DJANGO_STATIC_SAVE_PREFIX",
+              "DJANGO_STATIC_NAME_PREFIX",
+              "DJANGO_STATIC_MEDIA_URL",
+              "DJANGO_STATIC_FILE_PROXY",
+              "DJANGO_STATIC_USE_SYMLINK",
+              "DJANGO_STATIC_CLOSURE_COMPILER",
+              "DJANGO_STATIC_MEDIA_ROOTS" ]:
+    _saved_settings.append((name, getattr(settings, name, _MISSING)))
 
 class TestDjangoStatic(TestCase):
     
@@ -68,13 +76,26 @@ class TestDjangoStatic(TestCase):
         #    os.mkdir(TEST_MEDIA_ROOT)
             
         # All tests is going to run off this temp directory
-        settings.MEDIA_ROOT = mkdtemp()
-        self.__added_dirs.append(settings.MEDIA_ROOT)
+        settings.MEDIA_ROOT = self._mkdir()
         
-        # Disable Closure Compiler if set
+        # Set all django-static settings to known values so it isn't
+        # dependant on the real values in settings.py
+        settings.DJANGO_STATIC = True
+        settings.DJANGO_STATIC_SAVE_PREFIX = ""
+        settings.DJANGO_STATIC_NAME_PREFIX = ""
+        settings.DJANGO_STATIC_MEDIA_URL = ""
+        settings.DJANGO_STATIC_USE_SYMLINK = True
+        settings.DJANGO_STATIC_FILE_PROXY = None
         settings.DJANGO_STATIC_CLOSURE_COMPILER = None
+        if hasattr(settings, "DJANGO_STATIC_MEDIA_ROOTS"):
+            del settings.DJANGO_STATIC_MEDIA_ROOTS
         
         super(TestDjangoStatic, self).setUp()
+
+    def _mkdir(self):
+        dir = mkdtemp()
+        self.__added_dirs.append(dir)
+        return dir
         
     def tearDown(self):
         for filepath in self.__added_filepaths:
@@ -82,13 +103,11 @@ class TestDjangoStatic(TestCase):
                 os.remove(filepath)
                 
         # restore things for other potential tests
-        settings.DEBUG = _original_DEBUG
-        settings.DJANGO_STATIC_SAVE_PREFIX = _original_DJANGO_STATIC_SAVE_PREFIX
-        settings.DJANGO_STATIC_NAME_PREFIX = _original_DJANGO_STATIC_NAME_PREFIX
-        settings.DJANGO_STATIC_MEDIA_URL = _original_DJANGO_STATIC_MEDIA_URL
-        settings.DJANGO_STATIC_FILE_PROXY = None
-        if hasattr(settings, "DJANGO_STATIC_MEDIA_ROOTS"):
-            del settings.DJANGO_STATIC_MEDIA_ROOTS
+        for name, value in _saved_settings:
+            if value == _MISSING and hasattr(settings, name):
+                delattr(settings, name)
+            else:
+                setattr(settings, name, value)
         
         for dir in self.__added_dirs:
             if dir.startswith(gettempdir()):
@@ -274,11 +293,9 @@ class TestDjangoStatic(TestCase):
         """
         
         dir1 = settings.MEDIA_ROOT
-        dir2 = mkdtemp()
-        self.__added_dirs.append(dir2)
+        dir2 = self._mkdir()
         settings.DJANGO_STATIC_MEDIA_ROOTS = [ dir1, dir2 ]
-        dir3 = mkdtemp()
-        self.__added_dirs.append(dir3)
+        dir3 = self._mkdir()
 
         open(dir1 + '/img100.gif', 'w').write(_GIF_CONTENT)
         open(dir2 + '/img200.gif', 'w').write(_GIF_CONTENT)
@@ -318,11 +335,9 @@ class TestDjangoStatic(TestCase):
         """
         
         dir1 = settings.MEDIA_ROOT
-        dir2 = mkdtemp()
-        self.__added_dirs.append(dir2)
+        dir2 = self._mkdir()
         settings.DJANGO_STATIC_MEDIA_ROOTS = [ dir1, dir2 ]
-        dir3 = mkdtemp()
-        self.__added_dirs.append(dir3)
+        dir3 = self._mkdir()
 
         open(dir1 + '/test_A.js', 'w').write("var A=1;")
         open(dir2 + '/test_B.js', 'w').write("var B=1;")
