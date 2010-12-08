@@ -11,9 +11,15 @@ ADMINS = (
 
 MANAGERS = ADMINS
 
-
-DATABASE_ENGINE = 'sqlite3'
-DATABASE_NAME = TEST_DATABASE_NAME = ':memory:'
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': ':memory:',
+    }
+}
+# good bye Django 1.1!
+#DATABASE_ENGINE = 'sqlite3'
+#DATABASE_NAME = TEST_DATABASE_NAME = ':memory:'
 
 CACHE_BACKEND = 'locmem:///'
 
