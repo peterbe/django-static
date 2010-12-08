@@ -1,8 +1,8 @@
+import re
 import os
 import stat
 import sys
 import time
-import re
 from tempfile import mkdtemp, gettempdir
 from glob import glob
 from base64 import decodestring
@@ -421,7 +421,20 @@ class TestDjangoStatic(TestCase):
         
         self._test_staticfile_single('/jquery-4.min.js',
                                      'function () { return 1; }',
-                                     media_url=media_url)        
+                                     media_url=media_url)
+                                     
+    def assertFilenamesAlmostEqual(self, name1, name2):
+        # Occasionally we get a failure because the clock ticked to
+        # the next second after the file was rendered.
+        # Thanks https://github.com/slinkp for this contribution!
+        
+        name1, name2 = name1.strip(), name2.strip()
+        timestamp_re = re.compile(r'[^\.]\.([0-9]+)\..*')
+        t1 = int(timestamp_re.search(name1).group(1))
+        t2 = int(timestamp_re.search(name2).group(1))
+        self.assert_(t1 - t2 in (-1, 0, 1),
+                     "Filenames %r and %r timestamps differ by more than 1" % (name1, name2))
+
 
     def _test_staticfile_single(self, filename, code, name_prefix='', save_prefix='',
                                media_url=''):
@@ -439,7 +452,7 @@ class TestDjangoStatic(TestCase):
         bits = filename.rsplit('.', 1)
         now = int(time.time())
         new_filename = bits[0] + '.%s.' % now + bits[-1]
-        self.assertEqual(rendered, media_url + name_prefix + new_filename)
+        self.assertFilenamesAlmostEqual(rendered, media_url + name_prefix + new_filename)
         
         if save_prefix:
             save_dir = os.path.join(os.path.join(settings.MEDIA_ROOT, save_prefix))
@@ -469,7 +482,7 @@ class TestDjangoStatic(TestCase):
         
         # Run it again just to check that it still works
         rendered = template.render(context).strip()
-        self.assertEqual(rendered, media_url + name_prefix + new_filename)
+        self.assertFilenamesAlmostEqual(rendered, media_url + name_prefix + new_filename)
         
         # pretend that time has passed and 10 seconds has lapsed then re-run the
         # rendering again and depending on settings.DEBUG this is noticed
@@ -489,7 +502,7 @@ class TestDjangoStatic(TestCase):
         rendered = template.render(context).strip()
         if settings.DEBUG:
             new_filename = bits[0] + '.%s.' % (now + 10) + bits[1]
-        self.assertEqual(rendered, media_url + name_prefix + new_filename)
+        self.assertFilenamesAlmostEqual(rendered, media_url + name_prefix + new_filename)
         
         if settings.DEBUG:
             
@@ -609,7 +622,7 @@ class TestDjangoStatic(TestCase):
         bits = filename.split('.')
         now = int(time.time())
         new_filename = bits[0] + '.%s.' % now + bits[1]
-        self.assertEqual(rendered, name_prefix + new_filename)
+        self.assertFilenamesAlmostEqual(rendered, name_prefix + new_filename)
         
         if save_prefix:
             save_dir = os.path.join(os.path.join(settings.MEDIA_ROOT, save_prefix))
@@ -635,7 +648,7 @@ class TestDjangoStatic(TestCase):
         
         # Run it again just to check that it still works
         rendered = template.render(context).strip()
-        self.assertEqual(rendered, name_prefix + new_filename)
+        self.assertFilenamesAlmostEqual(rendered, name_prefix + new_filename)
         
         # pretend that time has passed and 10 seconds has lapsed then re-run the
         # rendering again and depending on settings.DEBUG this is noticed
@@ -656,7 +669,7 @@ class TestDjangoStatic(TestCase):
         rendered = template.render(context).strip()
         if settings.DEBUG:
             new_filename = bits[0] + '.%s.' % (now + 10) + bits[1]
-        self.assertEqual(rendered, name_prefix + new_filename)
+        self.assertFilenamesAlmostEqual(rendered, name_prefix + new_filename)
         
         if settings.DEBUG:
             
@@ -792,7 +805,7 @@ class TestDjangoStatic(TestCase):
         bits = expect_filename.split('.')
         expect_filename = expect_filename[:-3]
         expect_filename += '.%s%s' % (now, os.path.splitext(filenames[0])[1])
-        self.assertEqual(rendered, name_prefix + expect_filename)
+        self.assertFilenamesAlmostEqual(rendered, name_prefix + expect_filename)
         
         if save_prefix:
             new_filenames_set = os.listdir(os.path.join(settings.MEDIA_ROOT, save_prefix))
@@ -814,7 +827,7 @@ class TestDjangoStatic(TestCase):
         template = Template(template_as_string)
         context = Context()
         rendered = template.render(context).strip()
-        self.assertEqual(rendered, name_prefix + expect_filename)
+        self.assertFilenamesAlmostEqual(rendered, name_prefix + expect_filename)
         
         from posix import stat_result
         def fake_stat(arg):
@@ -837,7 +850,7 @@ class TestDjangoStatic(TestCase):
             # won't notice this until after you restart Django.
             pass
         
-        self.assertEqual(rendered, name_prefix + expect_filename)
+        self.assertFilenamesAlmostEqual(rendered, name_prefix + expect_filename)
         
             
     def test_staticfile_multiple_debug_on(self):
@@ -878,7 +891,7 @@ class TestDjangoStatic(TestCase):
         bits = expect_filename.split('.')
         expect_filename = expect_filename[:-3]
         expect_filename += '.%s%s' % (now, os.path.splitext(filenames[0])[1])
-        self.assertEqual(rendered, name_prefix + expect_filename)
+        self.assertFilenamesAlmostEqual(rendered, name_prefix + expect_filename)
         
         if save_prefix:
             new_filenames_set = os.listdir(os.path.join(settings.MEDIA_ROOT, save_prefix))
@@ -909,7 +922,7 @@ class TestDjangoStatic(TestCase):
         template = Template(template_as_string)
         context = Context()
         rendered = template.render(context).strip()
-        self.assertEqual(rendered, name_prefix + expect_filename)
+        self.assertFilenamesAlmostEqual(rendered, name_prefix + expect_filename)
         
         from posix import stat_result
         def fake_stat(arg):
@@ -932,7 +945,7 @@ class TestDjangoStatic(TestCase):
             # won't notice this until after you restart Django.
             pass
         
-        self.assertEqual(rendered, name_prefix + expect_filename)
+        self.assertFilenamesAlmostEqual(rendered, name_prefix + expect_filename)
         
     def test_staticall_basic(self):
         settings.DEBUG = True
