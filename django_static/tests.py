@@ -456,7 +456,14 @@ class TestDjangoStatic(TestCase):
         
         if save_prefix:
             save_dir = os.path.join(os.path.join(settings.MEDIA_ROOT, save_prefix))
-            self.assertTrue(os.path.basename(new_filename) in os.listdir(save_dir))
+            if os.path.basename(new_filename) not in os.listdir(save_dir):
+                # most likely because the clock ticked whilst running the test
+                ts = re.findall('\d{2,10}', new_filename)[0]
+                previous_second = int(ts) - 1
+                other_new_filename = new_filename.replace(ts, str(previous_second))
+                self.assertTrue(os.path.basename(other_new_filename) in os.listdir(save_dir))
+            else:
+                self.assertTrue(os.path.basename(new_filename) in os.listdir(save_dir))
             # The content of the new file should be the same
             new_file = os.listdir(save_dir)[0]
             new_file_path = os.path.join(save_dir, new_file)
@@ -626,7 +633,23 @@ class TestDjangoStatic(TestCase):
         
         if save_prefix:
             save_dir = os.path.join(os.path.join(settings.MEDIA_ROOT, save_prefix))
-            self.assertTrue(os.path.basename(new_filename) in os.listdir(save_dir))
+            if os.path.basename(new_filename) not in os.listdir(save_dir):
+                # Because the clock has ticked in the time this test was running
+                # have to manually check some things. 
+                # This might be what you have on your hands:
+                #  new_filename
+                #  /testingXXX.1291842804.js
+                #  os.path.basename(new_filename)
+                #  testingXXX.1291842804.js
+                #  os.listdir(save_dir)
+                #  ['testingXXX.1291842803.js']
+                ts = re.findall('\d{2,10}', new_filename)[0]
+                previous_second = int(ts) - 1
+                other_new_filename = new_filename.replace(ts, str(previous_second))
+                self.assertTrue(os.path.basename(other_new_filename) in os.listdir(save_dir))
+                
+            else:
+                self.assertTrue(os.path.basename(new_filename) in os.listdir(save_dir))
             # The content of the new file should be smaller
             
             new_file = os.path.join(save_dir, os.listdir(save_dir)[0])
@@ -1099,7 +1122,20 @@ class TestDjangoStatic(TestCase):
 
         expect_filename += '.%s%s' % (now, os.path.splitext(filenames[0])[1])
         
-        self.assertTrue(expect_filename in rendered, expect_filename)
+        if expect_filename not in rendered:
+            # expect_filename is something like
+            # '/testxx_testyy.1291842493.css'
+            # replace that with a more fuzzy matching
+            # This is because the clock might have ticked one second between
+            # when the file was created and when the expect_filename 
+            # variable was prepared.
+            ts = re.findall('\d{2,10}', expect_filename)[0]
+            previous_second = int(ts) - 1
+            other_expect_filename = expect_filename.replace(ts, str(previous_second))
+            self.assertTrue(other_expect_filename in rendered, other_expect_filename)
+            
+        else:
+            self.assertTrue(expect_filename in rendered, expect_filename)
         
         # this should have created a new file
         if save_prefix:
