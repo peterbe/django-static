@@ -22,7 +22,9 @@ try:
     slimmer = 'installed'
 except ImportError:
     slimmer = None
-    warnings.warn("slimmer is not installed. (easy_install slimmer)")
+    # because if it's import, it's much better to rely on YUI Compressor
+    # and Google Closure compiler. 
+    #warnings.warn("slimmer is not installed. (easy_install slimmer)")
 
 if sys.platform == "win32":
     _CAN_SYMLINK = False
