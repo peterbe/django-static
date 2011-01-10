@@ -3,7 +3,7 @@ from distutils.core import setup
 
 
 # django-static doesn't have a version but this setup.py does
-VERSION = '1.4.1' # remember to match with django_static/__init__.py
+VERSION = '1.5.0' # remember to match with django_static/__init__.py
 
 import os
 long_description = open(os.path.join(os.path.dirname(__file__), 
@@ -14,7 +14,7 @@ setup(
       name='django-static',
       version=VERSION,
       url='http://github.com/peterbe/django-static',
-      download_url='git://github.com/peterbe/django-static.git',
+      download_url='http://pypi.python.org/packages/source/d/django-static/django-static-1.4.1.tar.gz',
       description='Template tags for better serving static files from templates in Django',
       long_description=long_description,
       author='Peter Bengtsson',
