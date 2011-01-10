@@ -21,3 +21,5 @@ kill_fcgi.sh
 run_fcgi.sh
 coverage_report/
 fcgi_settings.py
+media/css/sub/module.*.css
+media/css/sub-module2.*.css

@@ -495,7 +495,6 @@ def _static_file(filename,
             content = REFERRED_CSS_URLS_REGEX.sub(replacer, content)
             content = REFERRED_CSS_URLLESS_IMPORTS_REGEX.sub(replacer, content)
             
-            
         elif slimmer:
             raise ValueError(
               "Unable to slimmer file %s. Unrecognized extension" % new_filename)
