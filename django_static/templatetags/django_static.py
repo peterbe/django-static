@@ -320,7 +320,8 @@ class StaticFilesNode(template.Node):
         
         return code
     
-REFERRED_CSS_IMAGES_REGEX = re.compile('url\(([^\)]+)\)')
+REFERRED_CSS_URLS_REGEX = re.compile('url\(([^\)]+)\)')
+REFERRED_CSS_URLLESS_IMPORTS_REGEX = re.compile('@import\s+[\'"]([^\'"]+)[\'"]')
 
 def _static_file(filename,
                  optimize_if_possible=False,
@@ -466,20 +467,35 @@ def _static_file(filename,
             content = optimize(content, JS)
         elif new_filename.endswith('.css') and has_optimizer(CSS):
             content = optimize(content, CSS)
+            
             # and _static_file() all images refered in the CSS file itself
             def replacer(match):
-                filename = match.groups()[0]
-                if (filename.startswith('"') and filename.endswith('"')) or \
-                  (filename.startswith("'") and filename.endswith("'")):
-                    filename = filename[1:-1]
+                this_filename = match.groups()[0]
+                if (this_filename.startswith('"') and this_filename.endswith('"')) or \
+                  (this_filename.startswith("'") and this_filename.endswith("'")):
+                    this_filename = this_filename[1:-1]
                 # It's really quite common that the CSS file refers to the file 
                 # that doesn't exist because if you refer to an image in CSS for
                 # a selector you never use you simply don't suffer.
                 # That's why we say not to warn on nonexisting files
-                new_filename = _static_file(filename, symlink_if_possible=symlink_if_possible,
+                
+                replace_with = this_filename
+                
+                if not (this_filename.startswith('/') or \
+                  (this_filename.startswith('http') and '://' in this_filename)):
+                    # if the referenced filename is something like 
+                    # 'images/foo.jpg' or 'sub/module.css' then we need to copy the
+                    # current relative directory
+                    replace_with = this_filename
+                    this_filename = os.path.join(os.path.dirname(filename), this_filename)
+                new_filename = _static_file(this_filename, symlink_if_possible=symlink_if_possible,
                                             warn_no_file=DEBUG and True or False)
-                return match.group().replace(filename, new_filename)
-            content = REFERRED_CSS_IMAGES_REGEX.sub(replacer, content)
+                return match.group().replace(replace_with, new_filename)
+            
+            content = REFERRED_CSS_URLS_REGEX.sub(replacer, content)
+            content = REFERRED_CSS_URLLESS_IMPORTS_REGEX.sub(replacer, content)
+            
+            
         elif slimmer:
             raise ValueError(
               "Unable to slimmer file %s. Unrecognized extension" % new_filename)
