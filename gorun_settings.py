@@ -1,8 +1,10 @@
 DIRECTORIES = (
     (('django_static/tests.py',
       'django_static/templatetags/django_static.py'),
-     './manage.py test django_static.TestDjangoStatic'),     
+#     './manage.py test django_static.TestDjangoStatic'),     
 #     './manage.py test django_static.TestDjangoStatic.test_slimfile_multiple_basic'),
+#     './manage.py test django_static.TestDjangoStatic.test_cross_optimizing_imported_css'),
+     './manage.py test django_static.TestDjangoStatic.test_cross_optimizing_imported_css_with_save_prefix_and_name_prefix'),
 #     './manage.py test django_static.TestDjangoStatic.test_staticall_basic'),
 #     './manage.py test django_static.TestDjangoStatic'),
 #     './manage.py test django_static.TestDjangoStatic.test_slimall_basic_css'),

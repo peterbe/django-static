@@ -488,21 +488,28 @@ def _static_file(filename,
                     # current relative directory
                     replace_with = this_filename
                     this_filename = os.path.join(os.path.dirname(filename), this_filename)
+                optimize_again = optimize_if_possible and \
+                                 this_filename.lower().endswith('.css') or False
+                #print "this_filename", this_filename
+                #print "optimize_again", optimize_again
                 new_filename = _static_file(this_filename,
                                             symlink_if_possible=symlink_if_possible,
-                                            optimize_if_possible=optimize_if_possible,
+                                            optimize_if_possible=optimize_again,
                                             warn_no_file=DEBUG and True or False)
+                #print "new_filename", new_filename
+                #print "\n"
                 return match.group().replace(replace_with, new_filename)
             
-            print "FILENAME"
-            print filename
-            print "CONTENT (PRE)"
-            print content
+            #print "FILENAME"
+            #print filename
+            #print "CONTENT (PRE)"
+            #print content
             content = REFERRED_CSS_URLS_REGEX.sub(replacer, content)
-            print "(AFTER)"
+            #print "(AFTER)"
             content = REFERRED_CSS_URLLESS_IMPORTS_REGEX.sub(replacer, content)
-            print "COMPLETELY AFTER"
-            print content
+            #print "COMPLETELY AFTER"
+            #print content
+            
             
         elif slimmer:
             raise ValueError(

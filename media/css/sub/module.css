@@ -1,1 +1,3 @@
-h4 { text-decoration: strike-through; }
+h4{
+  text-decoration:line-through;
+}

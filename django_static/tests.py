@@ -1701,7 +1701,152 @@ class TestDjangoStatic(TestCase):
         context = Context()
         rendered = template.render(context).strip()
         
-            
+        self.assertTrue(re.findall('/css/foobar\.\d+.css', rendered))
+        foobar_content = open(settings.MEDIA_ROOT + rendered).read()
+        #print repr(foobar_content)
+        self.assertTrue(not foobar_content.count('\n'))
+        self.assertTrue(re.findall('@import "/css/one\.\d+\.css";', foobar_content))
+        # notice how we add the '/css/' path to this one! 
+        # it was '@import "two.css";' originally
+        self.assertTrue(re.findall('@import "/css/two\.\d+\.css";', foobar_content))
+        self.assertTrue(re.findall('@import url\(/css/deeper/three\.\d+\.css\);', foobar_content))
+        self.assertTrue(re.findall('@import url\(\'/css/four\.\d+\.css\'\);', foobar_content))
+        
+        # now lets study the results of each of these files
+        filename_one = re.findall('one\.\d+\.css', foobar_content)[0]
+        filename_two = re.findall('two\.\d+\.css', foobar_content)[0]
+        filename_three = re.findall('three\.\d+\.css', foobar_content)[0]
+        filename_four = re.findall('four\.\d+\.css', foobar_content)[0]
+        
+        content_one = open(settings.MEDIA_ROOT + '/css/' + filename_one).read()
+        self.assertTrue('COMMENT ONE' not in content_one)
+        self.assertTrue(re.findall('one\.\d+\.gif', content_one))
+        image_filename_one = re.findall('one\.\d+\.gif', content_one)[0]
+        
+        content_two = open(settings.MEDIA_ROOT + '/css/' + filename_two).read()
+        self.assertTrue('COMMENT TWO' not in content_one)
+        self.assertTrue(re.findall('two\.\d+\.gif', content_two))
+        image_filename_two = re.findall('two\.\d+\.gif', content_two)[0]
+        
+        content_three = open(settings.MEDIA_ROOT + '/css/deeper/' + filename_three).read()
+        self.assertTrue('COMMENT THREE' not in content_three)
+        self.assertTrue(re.findall('three\.\d+\.gif', content_three))
+        image_filename_three = re.findall('three\.\d+\.gif', content_three)[0]
+        
+        content_four = open(settings.MEDIA_ROOT + '/css/' + filename_four).read()
+        self.assertTrue('COMMENT FOUR' not in content_four)
+        self.assertTrue(re.findall('four\.\d+\.gif', content_four))
+        image_filename_four = re.findall('four\.\d+\.gif', content_four)[0]
+        
+        # now check that these images were actually created
+        self.assertTrue(image_filename_one in os.listdir(settings.MEDIA_ROOT + '/css'))
+        self.assertTrue(image_filename_two in os.listdir(settings.MEDIA_ROOT + '/css'))
+        self.assertTrue(image_filename_three in os.listdir(settings.MEDIA_ROOT + '/css/deeper'))
+        self.assertTrue(image_filename_four in os.listdir(settings.MEDIA_ROOT))
+        
+    def test_cross_optimizing_imported_css_with_save_prefix_and_name_prefix(self):
+        """This test is entirely copied from test_cross_optimizing_imported_css()
+        but with SAVE_PREFIX and NAME_PREFIX added.
+        """
+        settings.DEBUG = False
+        settings.DJANGO_STATIC = True
+        settings.DJANGO_STATIC_NAME_PREFIX = '/infinity'
+        settings.DJANGO_STATIC_NAME_PREFIX = '/infinity'
+        settings.DJANGO_STATIC_SAVE_PREFIX = os.path.join(settings.MEDIA_ROOT, 'special')
+        
+        filename = 'css/foobar.css'
+        if not os.path.isdir(os.path.join(settings.MEDIA_ROOT, 'css')):
+            os.mkdir(os.path.join(settings.MEDIA_ROOT, 'css'))
+            if not os.path.isdir(os.path.join(settings.MEDIA_ROOT, 'css', 'deeper')):
+                os.mkdir(os.path.join(settings.MEDIA_ROOT, 'css', 'deeper'))
+                
+        test_filepath = os.path.join(settings.MEDIA_ROOT, filename)
+        open(test_filepath, 'w').write("""
+        @import "/css/one.css";
+        @import "two.css";
+        @import url(/css/deeper/three.css);
+        @import url('four.css');
+        """)
+        template_as_string = """
+        {% load django_static %}
+        {% slimfile "/css/foobar.css" %}
+        """
+        
+        # now we need to create all of those mock files
+        open(settings.MEDIA_ROOT + '/css/one.css', 'w').write("""
+        /* COMMENT ONE */
+        p { background-image: url('one.gif'); }
+        """)
+        
+        open(settings.MEDIA_ROOT + '/css/two.css', 'w').write("""
+        /* COMMENT TWO */
+        p { background-image: url(two.gif); }
+        """)
+        
+        open(settings.MEDIA_ROOT + '/css/deeper/three.css', 'w').write("""
+        /* COMMENT THREE */
+        p { background-image: url("three.gif"); }
+        """)
+        
+        open(settings.MEDIA_ROOT + '/css/four.css', 'w').write("""
+        /* COMMENT FOUR */
+        p { background-image: url("/four.gif"); }
+        """)
+        
+        # now we need to create the images
+        open(settings.MEDIA_ROOT + '/css/one.gif', 'w').write(_GIF_CONTENT)
+        open(settings.MEDIA_ROOT + '/css/two.gif', 'w').write(_GIF_CONTENT)
+        open(settings.MEDIA_ROOT + '/css/deeper/three.gif', 'w').write(_GIF_CONTENT)
+        open(settings.MEDIA_ROOT + '/four.gif', 'w').write(_GIF_CONTENT)
+        
+        template = Template(template_as_string)
+        context = Context()
+        rendered = template.render(context).strip()
+        
+        self.assertTrue(re.findall('/infinity/css/foobar\.\d+.css', rendered))
+        foobar_content = open(settings.MEDIA_ROOT + '/special' + \
+          rendered.replace('/infinity','')).read()
+        #print repr(foobar_content)
+        self.assertTrue(not foobar_content.count('\n'))
+        self.assertTrue(re.findall('@import "/infinity/css/one\.\d+\.css";', foobar_content))
+        # notice how we add the '/css/' path to this one! 
+        # it was '@import "two.css";' originally
+        self.assertTrue(re.findall('@import "/infinity/css/two\.\d+\.css";', foobar_content))
+        self.assertTrue(re.findall('@import url\(/infinity/css/deeper/three\.\d+\.css\);', foobar_content))
+        self.assertTrue(re.findall('@import url\(\'/infinity/css/four\.\d+\.css\'\);', foobar_content))
+        
+        # now lets study the results of each of these files
+        filename_one = re.findall('one\.\d+\.css', foobar_content)[0]
+        filename_two = re.findall('two\.\d+\.css', foobar_content)[0]
+        filename_three = re.findall('three\.\d+\.css', foobar_content)[0]
+        filename_four = re.findall('four\.\d+\.css', foobar_content)[0]
+        
+        content_one = open(settings.MEDIA_ROOT + '/special/css/' + filename_one).read()
+        self.assertTrue('COMMENT ONE' not in content_one)
+        self.assertTrue(re.findall('one\.\d+\.gif', content_one))
+        image_filename_one = re.findall('one\.\d+\.gif', content_one)[0]
+        
+        content_two = open(settings.MEDIA_ROOT + '/special/css/' + filename_two).read()
+        self.assertTrue('COMMENT TWO' not in content_one)
+        self.assertTrue(re.findall('two\.\d+\.gif', content_two))
+        image_filename_two = re.findall('two\.\d+\.gif', content_two)[0]
+        
+        content_three = open(settings.MEDIA_ROOT + '/special/css/deeper/' + filename_three).read()
+        self.assertTrue('COMMENT THREE' not in content_three)
+        self.assertTrue(re.findall('three\.\d+\.gif', content_three))
+        image_filename_three = re.findall('three\.\d+\.gif', content_three)[0]
+        
+        content_four = open(settings.MEDIA_ROOT + '/special/css/' + filename_four).read()
+        self.assertTrue('COMMENT FOUR' not in content_four)
+        self.assertTrue(re.findall('four\.\d+\.gif', content_four))
+        image_filename_four = re.findall('four\.\d+\.gif', content_four)[0]
+        
+        # now check that these images were actually created
+        self.assertTrue(image_filename_one in os.listdir(settings.MEDIA_ROOT + '/special/css'))
+        self.assertTrue(image_filename_two in os.listdir(settings.MEDIA_ROOT + '/special/css'))
+        self.assertTrue(image_filename_three in os.listdir(settings.MEDIA_ROOT + '/special/css/deeper'))
+        self.assertTrue(image_filename_four in os.listdir(settings.MEDIA_ROOT + '/special'))
+        
         
 # These have to be mutable so that we can record that they have been used as 
 # global variables. 
