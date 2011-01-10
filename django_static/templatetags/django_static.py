@@ -488,12 +488,21 @@ def _static_file(filename,
                     # current relative directory
                     replace_with = this_filename
                     this_filename = os.path.join(os.path.dirname(filename), this_filename)
-                new_filename = _static_file(this_filename, symlink_if_possible=symlink_if_possible,
+                new_filename = _static_file(this_filename,
+                                            symlink_if_possible=symlink_if_possible,
+                                            optimize_if_possible=optimize_if_possible,
                                             warn_no_file=DEBUG and True or False)
                 return match.group().replace(replace_with, new_filename)
             
+            print "FILENAME"
+            print filename
+            print "CONTENT (PRE)"
+            print content
             content = REFERRED_CSS_URLS_REGEX.sub(replacer, content)
+            print "(AFTER)"
             content = REFERRED_CSS_URLLESS_IMPORTS_REGEX.sub(replacer, content)
+            print "COMPLETELY AFTER"
+            print content
             
         elif slimmer:
             raise ValueError(

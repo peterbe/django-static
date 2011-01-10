@@ -1633,6 +1633,76 @@ class TestDjangoStatic(TestCase):
         self.assertTrue('filepath' in _last_fake_file_keyword_arguments)
         
         
+    def test_cross_optimizing_imported_css(self):
+        """Most basic test
+        {% slimfile "/css/foobar.css" %}
+        it should become 
+        /foobar.123xxxxxxx.css
+        
+        But foobar.css will have to contain these:
+            
+            @import "/css/one.css";
+            @import "two.css";
+            @import url(/css/three.css);
+            @import url('two.css');
+            
+        Also, in them we're going to refer to images.
+        """
+        settings.DEBUG = False
+        settings.DJANGO_STATIC = True
+        
+        
+        filename = 'css/foobar.css'
+        if not os.path.isdir(os.path.join(settings.MEDIA_ROOT, 'css')):
+            os.mkdir(os.path.join(settings.MEDIA_ROOT, 'css'))
+            if not os.path.isdir(os.path.join(settings.MEDIA_ROOT, 'css', 'deeper')):
+                os.mkdir(os.path.join(settings.MEDIA_ROOT, 'css', 'deeper'))
+                
+        test_filepath = os.path.join(settings.MEDIA_ROOT, filename)
+        open(test_filepath, 'w').write("""
+        @import "/css/one.css";
+        @import "two.css";
+        @import url(/css/deeper/three.css);
+        @import url('four.css');
+        """)
+        template_as_string = """
+        {% load django_static %}
+        {% slimfile "/css/foobar.css" %}
+        """
+        
+        # now we need to create all of those mock files
+        open(settings.MEDIA_ROOT + '/css/one.css', 'w').write("""
+        /* COMMENT ONE */
+        p { background-image: url('one.gif'); }
+        """)
+        
+        open(settings.MEDIA_ROOT + '/css/two.css', 'w').write("""
+        /* COMMENT TWO */
+        p { background-image: url(two.gif); }
+        """)
+        
+        open(settings.MEDIA_ROOT + '/css/deeper/three.css', 'w').write("""
+        /* COMMENT THREE */
+        p { background-image: url("three.gif"); }
+        """)
+        
+        open(settings.MEDIA_ROOT + '/css/four.css', 'w').write("""
+        /* COMMENT FOUR */
+        p { background-image: url("/four.gif"); }
+        """)
+        
+        # now we need to create the images
+        open(settings.MEDIA_ROOT + '/css/one.gif', 'w').write(_GIF_CONTENT)
+        open(settings.MEDIA_ROOT + '/css/two.gif', 'w').write(_GIF_CONTENT)
+        open(settings.MEDIA_ROOT + '/css/deeper/three.gif', 'w').write(_GIF_CONTENT)
+        open(settings.MEDIA_ROOT + '/four.gif', 'w').write(_GIF_CONTENT)
+        
+        template = Template(template_as_string)
+        context = Context()
+        rendered = template.render(context).strip()
+        
+            
+        
 # These have to be mutable so that we can record that they have been used as 
 # global variables. 
 _last_fake_file_uri = None
