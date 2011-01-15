@@ -320,7 +320,7 @@ class StaticFilesNode(template.Node):
 
         return code
 
-REFERRED_CSS_URLS_REGEX = re.compile('url\(([^\)]+)\)')
+REFERRED_CSS_URLS_REGEX = re.compile('url\(((?!data:)[^\)]+)\)')
 REFERRED_CSS_URLLESS_IMPORTS_REGEX = re.compile('@import\s+[\'"]([^\'"]+)[\'"]')
 
 def _static_file(filename,
@@ -472,6 +472,7 @@ def _static_file(filename,
             # and _static_file() all images refered in the CSS file itself
             def replacer(match):
                 this_filename = match.groups()[0]
+
                 if (this_filename.startswith('"') and this_filename.endswith('"')) or \
                   (this_filename.startswith("'") and this_filename.endswith("'")):
                     this_filename = this_filename[1:-1]
