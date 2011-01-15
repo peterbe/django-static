@@ -5,7 +5,6 @@ import sys
 import stat
 import shutil
 import codecs
-from glob import glob
 from collections import defaultdict
 from cStringIO import StringIO
 from subprocess import Popen, PIPE
