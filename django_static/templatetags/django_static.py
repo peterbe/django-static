@@ -4,13 +4,14 @@ import re
 import sys
 import stat
 import shutil
+import codecs
 from glob import glob
 from collections import defaultdict
 from cStringIO import StringIO
 from subprocess import Popen, PIPE
 import warnings
 
-# django 
+# django
 from django import template
 from django.conf import settings
 from django.template import TemplateSyntaxError
@@ -23,7 +24,7 @@ try:
 except ImportError:
     slimmer = None
     # because if it's import, it's much better to rely on YUI Compressor
-    # and Google Closure compiler. 
+    # and Google Closure compiler.
     #warnings.warn("slimmer is not installed. (easy_install slimmer)")
 
 if sys.platform == "win32":
@@ -56,7 +57,7 @@ def staticfile(filename):
     return _static_file(filename,
                         symlink_if_possible=_CAN_SYMLINK,
                         optimize_if_possible=False)
-                
+
 
 def _load_file_proxy():
     # This is a function so that it can be unit tested more easily
@@ -93,7 +94,7 @@ class SlimContentNode(template.Node):
 
         if self.format not in ('css','js','html','xhtml'):
             self.format = guessSyntax(code)
-            
+
         if self.format == 'css':
             return css_slimmer(code)
         elif self.format in ('js', 'javascript'):
@@ -121,7 +122,7 @@ def do_slimcontent(parser, token):
         if not (format[0] == format[-1] and format[0] in ('"', "'")):
             raise template.TemplateSyntaxError, \
                           "%r tag's argument should be in quotes" % tag_name
-                      
+
     return SlimContentNode(nodelist, format[1:-1])
 
 
@@ -134,7 +135,7 @@ def slimfile_node(parser, token):
          {% slimfile "/js/foo.js" as variable_name %}
     Or for multiples:
          {% slimfile "/foo.js; /bar.js" %}
-         or 
+         or
          {% slimfile "/foo.js; /bar.js" as variable_name %}
     """
     return staticfile_node(parser, token, optimize_if_possible=True)
@@ -148,7 +149,7 @@ def staticfile_node(parser, token, optimize_if_possible=False):
          {% staticfile "/js/foo.js" as variable_name %}
     Or for multiples:
          {% staticfile "/foo.js; /bar.js" %}
-         or 
+         or
          {% staticfile "/foo.js; /bar.js" as variable_name %}
     """
     args = token.split_contents()
@@ -159,31 +160,31 @@ def staticfile_node(parser, token, optimize_if_possible=False):
         args = args[:-2]
     else:
         context_name = None
-        
+
     filename = parser.compile_filter(args[1])
-    
+
     return StaticFileNode(filename,
                           symlink_if_possible=_CAN_SYMLINK,
                           optimize_if_possible=optimize_if_possible,
                           context_name=context_name)
-    
+
 
 class StaticFileNode(template.Node):
-    
+
     def __init__(self, filename_var,
-                 optimize_if_possible=False, 
+                 optimize_if_possible=False,
                  symlink_if_possible=False,
                  context_name=None):
         self.filename_var = filename_var
         self.optimize_if_possible = optimize_if_possible
         self.symlink_if_possible = symlink_if_possible
         self.context_name = context_name
-        
+
     def render(self, context):
         filename = self.filename_var.resolve(context)
         if not getattr(settings, 'DJANGO_STATIC', False):
             return filename
-        
+
         new_filename = _static_file([x.strip() for x in filename.split(';')],
                             optimize_if_possible=self.optimize_if_possible,
                             symlink_if_possible=self.symlink_if_possible)
@@ -191,13 +192,13 @@ class StaticFileNode(template.Node):
             context[self.context_name] = new_filename
             return ''
         return new_filename
-    
+
 
 @register.tag(name='slimall')
 def do_slimallfiles(parser, token):
     nodelist = parser.parse(('endslimall',))
     parser.delete_first_token()
-    
+
     return StaticFilesNode(nodelist,
                            symlink_if_possible=_CAN_SYMLINK,
                            optimize_if_possible=True)
@@ -207,7 +208,7 @@ def do_slimallfiles(parser, token):
 def do_staticallfiles(parser, token):
     nodelist = parser.parse(('endstaticall',))
     parser.delete_first_token()
-    
+
     return StaticFilesNode(nodelist,
                            symlink_if_possible=_CAN_SYMLINK,
                            optimize_if_possible=False)
@@ -220,16 +221,16 @@ STYLES_REGEX = re.compile('<link.*?href=["\']([^"\']+)["\'].*?>', re.M|re.DOTALL
 IMG_REGEX = re.compile('<img.*?src=["\']([^"\']+)["\'].*?>', re.M|re.DOTALL)
 
 class StaticFilesNode(template.Node):
-    """find all static files in the wrapped code and run staticfile (or 
+    """find all static files in the wrapped code and run staticfile (or
     slimfile) on them all by analyzing the code.
     """
     def __init__(self, nodelist, optimize_if_possible=False,
                  symlink_if_possible=False):
         self.nodelist = nodelist
         self.optimize_if_possible = optimize_if_possible
-        
+
         self.symlink_if_possible = symlink_if_possible
-        
+
     def render(self, context):
         """inspect the code and look for files that can be turned into combos.
         Basically, the developer could type this:
@@ -244,22 +245,22 @@ class StaticFilesNode(template.Node):
         code = self.nodelist.render(context)
         if not getattr(settings, 'DJANGO_STATIC', False):
             return code
-        
+
         new_js_filenames = []
         for match in SCRIPTS_REGEX.finditer(code):
             whole_tag = match.group()
             for filename in match.groups():
-                
+
                 optimize_if_possible = self.optimize_if_possible
                 if optimize_if_possible and \
                   (filename.endswith('.min.js') or filename.endswith('.minified.js')):
                     # Override! Because we simply don't want to run slimmer
                     # on files that have the file extension .min.js
                     optimize_if_possible = False
-                
+
                 new_js_filenames.append(filename)
                 code = code.replace(whole_tag, '')
-                
+
         # Now, we need to combine these files into one
         if new_js_filenames:
             new_js_filename = _static_file(new_js_filenames,
@@ -267,21 +268,21 @@ class StaticFilesNode(template.Node):
                                symlink_if_possible=self.symlink_if_possible)
         else:
             new_js_filename = None
-            
+
         new_image_filenames = []
         def image_replacer(match):
             tag = match.group()
             for filename in match.groups():
                 new_filename = _static_file(filename,
                                             symlink_if_possible=self.symlink_if_possible)
-                if new_filename != filename: 
+                if new_filename != filename:
                     tag = tag.replace(filename, new_filename)
             return tag
-        
+
         code = IMG_REGEX.sub(image_replacer, code)
-        
+
         new_css_filenames = defaultdict(list)
-        
+
         # It's less trivial with CSS because we can't combine those that are
         # of different media
         media_regex = re.compile('media=["\']([^"\']+)["\']')
@@ -292,11 +293,11 @@ class StaticFilesNode(template.Node):
             except IndexError:
                 # Because it's so common
                 media_type = 'screen'
-                
+
             for filename in match.groups():
                 new_css_filenames[media_type].append(filename)
                 code = code.replace(whole_tag, '')
-                
+
         # Now, we need to combine these files into one
         new_css_filenames_combined = {}
         if new_css_filenames:
@@ -305,21 +306,21 @@ class StaticFilesNode(template.Node):
                   _static_file(filenames,
                                optimize_if_possible=self.optimize_if_possible,
                                symlink_if_possible=self.symlink_if_possible)
-                
-            
+
+
         if new_js_filename:
             # Now is the time to apply the name prefix if there is one
             new_tag = '<script type="text/javascript" src="%s"></script>' % \
               new_js_filename
             code = "%s%s" % (new_tag, code)
-        
+
         for media_type, new_css_filename in new_css_filenames_combined.items():
             new_tag = '<link rel="stylesheet" type="text/css" media="%s" href="%s"/>' % \
               (media_type, new_css_filename)
             code = "%s%s" % (new_tag, code)
-        
+
         return code
-    
+
 REFERRED_CSS_URLS_REGEX = re.compile('url\(([^\)]+)\)')
 REFERRED_CSS_URLLESS_IMPORTS_REGEX = re.compile('@import\s+[\'"]([^\'"]+)[\'"]')
 
@@ -331,29 +332,29 @@ def _static_file(filename,
     """
     if not getattr(settings, 'DJANGO_STATIC', False):
         return file_proxy(filename, disabled=True)
-    
+
     def wrap_up(filename):
         if MEDIA_URL:
             return MEDIA_URL + filename
         return filename
-    
+
     is_combined_files = isinstance(filename, list)
     if is_combined_files and len(filename) == 1:
-        # e.g. passed a list of files but only one so treat it like a 
+        # e.g. passed a list of files but only one so treat it like a
         # single file
         filename = filename[0]
         is_combined_files = False
-    
+
     if is_combined_files:
         map_key = ';'.join(filename)
     else:
         map_key = filename
-        
+
     new_filename, m_time = _FILE_MAP.get(map_key, (None, None))
-    
+
     # we might already have done a conversion but the question is
     # if the file has changed. This we only want
-    # to bother with when in DEBUG mode because it adds one more 
+    # to bother with when in DEBUG mode because it adds one more
     # unnecessary operation.
     if new_filename:
         if DEBUG:
@@ -362,15 +363,15 @@ def _static_file(filename,
             new_filename = None
         else:
             # This is really fast and only happens when NOT in DEBUG mode
-            # since it doesn't do any comparison 
+            # since it doesn't do any comparison
             return file_proxy(wrap_up(new_filename), **fp_default_kwargs)
     else:
-        # This is important so that we can know that there wasn't an 
-        # old file which will help us know we don't need to delete 
+        # This is important so that we can know that there wasn't an
+        # old file which will help us know we don't need to delete
         # the old one
         old_new_filename = None
-        
-        
+
+
     if not new_filename:
         if is_combined_files:
             # It's a list! We have to combine it into one file
@@ -382,7 +383,7 @@ def _static_file(filename,
                 if not filepath:
                     raise OSError("Failed to find %s in %s" % (each,
                         ",".join(MEDIA_ROOTS)))
-                
+
                 if extension:
                     if os.path.splitext(filepath)[1] != extension:
                         raise ValueError("Mismatching file extension in combo %r" % \
@@ -392,25 +393,25 @@ def _static_file(filename,
                 each_m_times.append(os.stat(filepath)[stat.ST_MTIME])
                 new_file_content.write(open(filepath, 'r').read().strip())
                 new_file_content.write('\n')
-            
+
             filename = _combine_filenames(filename)
             # Set the root path of the combined files to the first entry
             # in the MEDIA_ROOTS list. This way django-static behaves a
             # little more predictible.
-            path = MEDIA_ROOTS[0] 
+            path = MEDIA_ROOTS[0]
             new_m_time = max(each_m_times)
-            
+
         else:
             filepath, path = _find_filepath_in_roots(filename)
             if not filepath:
                 if warn_no_file:
                     msg = "Can't find file %s in %s" % (filename, ",".join(MEDIA_ROOTS))
                     warnings.warn(msg)
-                return file_proxy(wrap_up(filename), 
+                return file_proxy(wrap_up(filename),
                                   **dict(fp_default_kwargs, filepath=filepath, notfound=True))
-            
+
             new_m_time = os.stat(filepath)[stat.ST_MTIME]
-            
+
         if m_time:
             # we had the filename in the map
             if m_time != new_m_time:
@@ -419,16 +420,16 @@ def _static_file(filename,
             else:
                 # ...and it hasn't changed!
                 return file_proxy(wrap_up(old_new_filename))
-            
+
         if not m_time:
             # We did not have the filename in the map OR it has changed
             apart = os.path.splitext(filename)
-            new_filename = ''.join([apart[0], 
+            new_filename = ''.join([apart[0],
                                 '.%s' % new_m_time,
                                 apart[1]])
-            
+
             fileinfo = (DJANGO_STATIC_NAME_PREFIX + new_filename, new_m_time)
-                
+
             _FILE_MAP[map_key] = fileinfo
             if old_new_filename:
                 old_new_filename = old_new_filename.replace(DJANGO_STATIC_NAME_PREFIX, '')
@@ -436,7 +437,7 @@ def _static_file(filename,
                         DJANGO_STATIC_SAVE_PREFIX or path)
                 if not os.path.isdir(os.path.dirname(old_new_filepath)):
                     _mkdir(os.path.dirname(old_new_filepath))
-        
+
                 if os.path.isfile(old_new_filepath):
                     os.remove(old_new_filepath)
 
@@ -444,46 +445,47 @@ def _static_file(filename,
             DJANGO_STATIC_SAVE_PREFIX or path)
     if not os.path.isdir(os.path.dirname(new_filepath)):
         _mkdir(os.path.dirname(new_filepath))
-        
-     
+
+
     # Files are either slimmered or symlinked or just copied. Basically, only
     # .css and .js can be slimmered but not all are. For example, an already
     # minified say jquery.min.js doesn't need to be slimmered nor does it need
-    # to be copied. 
-    # If you're on windows, it will always have to do a copy. 
-    # When symlinking, what the achievement is is that it gives the file a 
-    # unique and different name than the original. 
+    # to be copied.
+    # If you're on windows, it will always have to do a copy.
+    # When symlinking, what the achievement is is that it gives the file a
+    # unique and different name than the original.
     #
     # The caller of this method is responsible for dictacting if we're should
     # slimmer and if we can symlink.
     if optimize_if_possible:
-        # Then we expect to be able to modify the content and we will 
+        # Then we expect to be able to modify the content and we will
         # definitely need to write a new file.
         if is_combined_files:
             content = new_file_content.getvalue()
         else:
-            content = open(filepath).read()
+            #content = open(filepath).read()
+            content = codecs.open(filepath, 'r', 'utf-8').read()
         if new_filename.endswith('.js') and has_optimizer(JS):
             content = optimize(content, JS)
         elif new_filename.endswith('.css') and has_optimizer(CSS):
             content = optimize(content, CSS)
-            
+
             # and _static_file() all images refered in the CSS file itself
             def replacer(match):
                 this_filename = match.groups()[0]
                 if (this_filename.startswith('"') and this_filename.endswith('"')) or \
                   (this_filename.startswith("'") and this_filename.endswith("'")):
                     this_filename = this_filename[1:-1]
-                # It's really quite common that the CSS file refers to the file 
+                # It's really quite common that the CSS file refers to the file
                 # that doesn't exist because if you refer to an image in CSS for
                 # a selector you never use you simply don't suffer.
                 # That's why we say not to warn on nonexisting files
-                
+
                 replace_with = this_filename
-                
+
                 if not (this_filename.startswith('/') or \
                   (this_filename.startswith('http') and '://' in this_filename)):
-                    # if the referenced filename is something like 
+                    # if the referenced filename is something like
                     # 'images/foo.jpg' or 'sub/module.css' then we need to copy the
                     # current relative directory
                     replace_with = this_filename
@@ -499,7 +501,7 @@ def _static_file(filename,
                 #print "new_filename", new_filename
                 #print "\n"
                 return match.group().replace(replace_with, new_filename)
-            
+
             #print "FILENAME"
             #print filename
             #print "CONTENT (PRE)"
@@ -509,33 +511,33 @@ def _static_file(filename,
             content = REFERRED_CSS_URLLESS_IMPORTS_REGEX.sub(replacer, content)
             #print "COMPLETELY AFTER"
             #print content
-            
-            
+
+
         elif slimmer:
             raise ValueError(
               "Unable to slimmer file %s. Unrecognized extension" % new_filename)
         #print "** STORING:", new_filepath
-        open(new_filepath, 'w').write(content)
+        codecs.open(new_filepath, 'w', 'utf8').write(content)
     elif symlink_if_possible and not is_combined_files:
         #print "** SYMLINK:", filepath, '-->', new_filepath
-        
-        # The reason we have to do this strange while loop is that it can 
-        # happen that in between the time it takes to destroy symlink till you 
+
+        # The reason we have to do this strange while loop is that it can
+        # happen that in between the time it takes to destroy symlink till you
         # can create it, another thread or process might be trying to do the
         # exact same thing with just a fraction of a second difference, thus
         # making it possible to, at the time of creating the symlink, that it's
         # already there which will raise an OSError.
         #
-        # This is quite possible when Django for example starts multiple fcgi 
+        # This is quite possible when Django for example starts multiple fcgi
         # threads roughly all at the same time. An alternative approach would
-        # be to store the global variable _FILE_MAP in a cache or something 
+        # be to store the global variable _FILE_MAP in a cache or something
         # which would effectively make it thread safe but that has the annoying
         # disadvantage that it remains in the cache between server restarts and
-        # for a production environment, server restarts very often happen 
+        # for a production environment, server restarts very often happen
         # because you have upgraded the code (and the static files). So, an
         # alternative is to use a cache so that thread number 2, number 3 etc
         # gets the file mappings of the first thread and then let this cache
-        # only last for a brief amount of time. That amount of time would 
+        # only last for a brief amount of time. That amount of time would
         # basically be equivalent of the time the sys admin or developer would
         # have to wait between new code deployment and refreshed symlinks for
         # the static files. That feels convoluted and complex so I've decided
@@ -550,7 +552,7 @@ def _static_file(filename,
                     # that the file existed before.
                     # That's not the case with symlinks
                     os.unlink(new_filepath)
-        
+
                 os.symlink(filepath, new_filepath)
                 break
             except OSError:
@@ -564,9 +566,9 @@ def _static_file(filename,
         # straight copy
         #print "** STORING COPY:", new_filepath
         shutil.copyfile(filepath, new_filepath)
-        
-    return file_proxy(wrap_up(DJANGO_STATIC_NAME_PREFIX + new_filename), 
-                      **dict(fp_default_kwargs, new=True, 
+
+    return file_proxy(wrap_up(DJANGO_STATIC_NAME_PREFIX + new_filename),
+                      **dict(fp_default_kwargs, new=True,
                              filepath=new_filepath, checked=True))
 
 
@@ -587,8 +589,8 @@ def _mkdir(newdir):
             _mkdir(head)
         if tail:
             os.mkdir(newdir)
-            
-            
+
+
 def _find_filepath_in_roots(filename):
     """Look for filename in all MEDIA_ROOTS, and return the first one found."""
     for root in MEDIA_ROOTS:
@@ -598,39 +600,39 @@ def _find_filepath_in_roots(filename):
     return None, None
 
 def _filename2filepath(filename, media_root):
-    # The reason we're doing this is because the templates will 
+    # The reason we're doing this is because the templates will
     # look something like this:
     # src="{{ MEDIA_URL }}/css/foo.css"
-    # and if (and often happens in dev mode) MEDIA_URL will 
+    # and if (and often happens in dev mode) MEDIA_URL will
     # just be ''
-    
+
     if filename.startswith('/'):
         path = os.path.join(media_root, filename[1:])
     else:
         path = os.path.join(media_root, filename)
-        
+
     return path
-    
-    
-    
+
+
+
 def _combine_filenames(filenames, max_length=40):
-    """Return a new filename to use as the combined file name for a 
-    bunch files. 
+    """Return a new filename to use as the combined file name for a
+    bunch files.
     A precondition is that they all have the same file extension
-    
-    Given that the list of files can have different paths, we aim to use the 
+
+    Given that the list of files can have different paths, we aim to use the
     most common path.
-    
+
     Example:
       /somewhere/else/foo.js
       /somewhere/bar.js
       /somewhere/different/too/foobar.js
     The result will be
       /somewhere/foo_bar_foobar.js
-      
+
     Another thing to note, if the filenames have timestamps in them, combine
     them all and use the highest timestamp.
-    
+
     """
     path = None
     names = []
@@ -642,20 +644,20 @@ def _combine_filenames(filenames, max_length=40):
             extension = os.path.splitext(name)[1]
         elif os.path.splitext(name)[1] != extension:
             raise ValueError("Can't combine multiple file extensions")
-        
+
         for each in re.finditer('\.\d{10}\.', name):
             timestamps.append(int(each.group().replace('.','')))
             name = name.replace(each.group(), '.')
         name = os.path.splitext(name)[0]
         names.append(name)
-        
+
         if path is None:
             path = os.path.dirname(filename)
         else:
             if len(os.path.dirname(filename)) < len(path):
                 path = os.path.dirname(filename)
-    
-    
+
+
     new_filename = '_'.join(names)
     if timestamps:
         new_filename += ".%s" % max(timestamps)
@@ -679,7 +681,7 @@ def has_optimizer(type_):
             return True
         if getattr(settings, 'DJANGO_STATIC_YUI_COMPRESSOR', None):
             return True
-        
+
         return slimmer is not None
     else:
         raise ValueError("Invalid type %r" % type_)
@@ -697,9 +699,9 @@ def optimize(content, type_):
         return js_slimmer(content)
     else:
         raise ValueError("Invalid type %r" % type_)
-    
+
 def _run_closure_compiler(jscode):
-    
+
     cmd = "java -jar %s" % settings.DJANGO_STATIC_CLOSURE_COMPILER
     proc = Popen(cmd, shell=True, stdout=PIPE, stdin=PIPE, stderr=PIPE)
     try:
@@ -709,12 +711,12 @@ def _run_closure_compiler(jscode):
         stderrdata = \
           "OSError: %s. Try again by making a small change and reload" % msg
     if stderrdata:
-        return "/* ERRORS WHEN RUNNING CLOSURE COMPILER\n" + stderrdata + '\n*/\n' + jscode 
-   
+        return "/* ERRORS WHEN RUNNING CLOSURE COMPILER\n" + stderrdata + '\n*/\n' + jscode
+
     return stdoutdata
 
 def _run_yui_compressor(code, type_):
-    
+
     cmd = "java -jar %s --type=%s" % (settings.DJANGO_STATIC_YUI_COMPRESSOR, type_)
     proc = Popen(cmd, shell=True, stdout=PIPE, stdin=PIPE, stderr=PIPE)
     try:
@@ -723,11 +725,11 @@ def _run_yui_compressor(code, type_):
         # Sometimes, for unexplicable reasons, you get a Broken pipe when
         # running the popen instance. It's always non-deterministic problem
         # so it probably has something to do with concurrency or something
-        # really low level. 
+        # really low level.
         stderrdata = \
           "OSError: %s. Try again by making a small change and reload" % msg
-        
+
     if stderrdata:
         return "/* ERRORS WHEN RUNNING YUI COMPRESSOR\n" + stderrdata + '\n*/\n' + code
-    
+
     return stdoutdata
