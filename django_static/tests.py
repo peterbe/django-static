@@ -7,8 +7,6 @@ import stat
 import sys
 import time
 from tempfile import mkdtemp, gettempdir
-from glob import glob
-from base64 import decodestring
 from unittest import TestCase
 from shutil import rmtree
 import warnings
@@ -1557,7 +1555,6 @@ class TestDjangoStatic(TestCase):
         # Now set it to something sensible
         # This becomes the equivalent of `from django_static.tests import fake_file_proxy`
         # Test that that works to start with
-        from django_static.tests import fake_file_proxy
         settings.DJANGO_STATIC_FILE_PROXY = 'django_static.tests.fake_file_proxy'
 
         proxy_function = func()
@@ -1936,9 +1933,40 @@ class TestDjangoStatic(TestCase):
         if slimmer is None:
             return
         self.assertTrue(u"src:url('/da39a3ee5e.eot');src:local('\u263a')," in content)
+        
+    def test_ignoring_data_uri_scheme(self):
+        settings.DEBUG = False
+        settings.DJANGO_STATIC = True
+        
+        html = u"""
+            <img src="pax.jpg" />
+            <img src="data_foo.jpg" />
+            <img src="data:image/png;..." />
+            <img src="data:foo/bar;..." />
+        """
+        
+        css = u"""
+            @font-face {
+               src: url('da39a3ee5e.eot');
+               src: local('☺'), url(data:font/woff;charset=utf-8;base64,[ snip ]) format('truetype');
+            }
+            
+            a {
+                background: url(pax.jpg)
+            }
+            
+            strong {
+                background: url('data_yadda.jpg')
+            }
+        """
+        
+        # first test some html
+        re_html = re.findall(django_static.templatetags.django_static.IMG_REGEX, html)
+        self.assertEqual(re_html, [u'pax.jpg', u'data_foo.jpg'])
 
-
-
+        # test some css
+        re_css = re.findall(django_static.templatetags.django_static.REFERRED_CSS_URLS_REGEX, css)
+        self.assertEqual(re_css, [u"'da39a3ee5e.eot'", u'pax.jpg', u"'data_yadda.jpg'"])
 
 # These have to be mutable so that we can record that they have been used as
 # global variables.
