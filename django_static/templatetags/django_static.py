@@ -217,7 +217,7 @@ def do_staticallfiles(parser, token):
 
 SCRIPTS_REGEX = re.compile('<script [^>]*src=["\']([^"\']+)["\'].*?</script>')
 STYLES_REGEX = re.compile('<link.*?href=["\']([^"\']+)["\'].*?>', re.M|re.DOTALL)
-IMG_REGEX = re.compile('<img.*?src=["\']([^"\']+)["\'].*?>', re.M|re.DOTALL)
+IMG_REGEX = re.compile('<img.*?src=["\']((?!data:)[^"\']+)["\'].*?>', re.M|re.DOTALL)
 
 class StaticFilesNode(template.Node):
     """find all static files in the wrapped code and run staticfile (or
