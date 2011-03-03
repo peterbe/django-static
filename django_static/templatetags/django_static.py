@@ -18,7 +18,8 @@ from django.template import TemplateSyntaxError
 register = template.Library()
 
 try:
-    from slimmer import css_slimmer, guessSyntax, html_slimmer, js_slimmer, xhtml_slimmer
+    from slimmer import (css_slimmer, guessSyntax, html_slimmer, js_slimmer,
+            xhtml_slimmer)
     slimmer = 'installed'
 except ImportError:
     slimmer = None
@@ -182,6 +183,8 @@ class StaticFileNode(template.Node):
     def render(self, context):
         filename = self.filename_var.resolve(context)
         if not getattr(settings, 'DJANGO_STATIC', False):
+            if MEDIA_URL:
+                return MEDIA_URL + filename
             return filename
 
         new_filename = _static_file([x.strip() for x in filename.split(';')],
