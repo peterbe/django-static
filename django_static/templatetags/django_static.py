@@ -222,6 +222,7 @@ def do_staticallfiles(parser, token):
 SCRIPTS_REGEX = re.compile('<script [^>]*src=["\']([^"\']+)["\'].*?</script>')
 STYLES_REGEX = re.compile('<link.*?href=["\']([^"\']+)["\'].*?>', re.M|re.DOTALL)
 IMG_REGEX = re.compile('<img.*?src=["\']((?!data:)[^"\']+)["\'].*?>', re.M|re.DOTALL)
+ASYNC_DEFER_REGEX = re.compile('async|defer')
 
 class StaticFilesNode(template.Node):
     """find all static files in the wrapped code and run staticfile (or
@@ -267,6 +268,7 @@ class StaticFilesNode(template.Node):
         new_js_filenames = []
         for match in SCRIPTS_REGEX.finditer(code):
             whole_tag = match.group()
+            async_defer = ASYNC_DEFER_REGEX.search(whole_tag)
             for filename in match.groups():
 
                 optimize_if_possible = self.optimize_if_possible
@@ -328,8 +330,11 @@ class StaticFilesNode(template.Node):
 
         if new_js_filename:
             # Now is the time to apply the name prefix if there is one
-            new_tag = '<script type="text/javascript" src="%s"></script>' % \
-              new_js_filename
+            if async_defer:
+                new_tag = ('<script %s src="%s"></script>' % 
+                        (async_defer.group(0), new_js_filename))
+            else:
+                new_tag = '<script src="%s"></script>' % new_js_filename
             code = "%s%s" % (new_tag, code)
 
         for media_type, new_css_filename in new_css_filenames_combined.items():
