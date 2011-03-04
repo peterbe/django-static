@@ -33,6 +33,7 @@ else:
     _CAN_SYMLINK = getattr(settings, "DJANGO_STATIC_USE_SYMLINK", True)
 
 DEBUG = settings.DEBUG
+DJANGO_STATIC = getattr(settings, 'DJANGO_STATIC', False)
 DJANGO_STATIC_SAVE_PREFIX = getattr(settings, 'DJANGO_STATIC_SAVE_PREFIX', '')
 DJANGO_STATIC_NAME_PREFIX = getattr(settings, 'DJANGO_STATIC_NAME_PREFIX', '')
 MEDIA_URL = getattr(settings, "DJANGO_STATIC_MEDIA_URL", None)
@@ -182,7 +183,7 @@ class StaticFileNode(template.Node):
 
     def render(self, context):
         filename = self.filename_var.resolve(context)
-        if not getattr(settings, 'DJANGO_STATIC', False):
+        if not DJANGO_STATIC:
             if MEDIA_URL:
                 return MEDIA_URL + filename
             return filename
@@ -245,7 +246,20 @@ class StaticFilesNode(template.Node):
         which we already have routines for doing.
         """
         code = self.nodelist.render(context)
-        if not getattr(settings, 'DJANGO_STATIC', False):
+        if not DJANGO_STATIC:
+            # Append MEDIA_URL if set
+            # quick and dirty
+            if MEDIA_URL:
+                for match in STYLES_REGEX.finditer(code):
+                    for filename in match.groups():
+                        code = code.replace(filename, MEDIA_URL + filename)
+
+                for match in SCRIPTS_REGEX.finditer(code):
+                    for filename in match.groups():
+                        code = code.replace(filename, MEDIA_URL + filename)
+
+                return code
+
             return code
 
         new_js_filenames = []
@@ -332,7 +346,7 @@ def _static_file(filename,
                  warn_no_file=True):
     """
     """
-    if not getattr(settings, 'DJANGO_STATIC', False):
+    if not DJANGO_STATIC:
         return file_proxy(filename, disabled=True)
 
     def wrap_up(filename):
