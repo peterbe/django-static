@@ -185,7 +185,7 @@ class StaticFileNode(template.Node):
         filename = self.filename_var.resolve(context)
         if not DJANGO_STATIC:
             if MEDIA_URL:
-                return MEDIA_URL + filename
+                return os.path.normpath(MEDIA_URL + filename)
             return filename
 
         new_filename = _static_file([x.strip() for x in filename.split(';')],
@@ -252,11 +252,13 @@ class StaticFilesNode(template.Node):
             if MEDIA_URL:
                 for match in STYLES_REGEX.finditer(code):
                     for filename in match.groups():
-                        code = code.replace(filename, MEDIA_URL + filename)
+                        code = (code.replace(filename,
+                                os.path.normpath(MEDIA_URL + filename)))
 
                 for match in SCRIPTS_REGEX.finditer(code):
                     for filename in match.groups():
-                        code = code.replace(filename, MEDIA_URL + filename)
+                        code = (code.replace(filename,
+                                os.path.normpath(MEDIA_URL + filename)))
 
                 return code
 
@@ -351,7 +353,7 @@ def _static_file(filename,
 
     def wrap_up(filename):
         if MEDIA_URL:
-            return MEDIA_URL + filename
+            return os.path.normpath(MEDIA_URL + filename)
         return filename
 
     is_combined_files = isinstance(filename, list)
