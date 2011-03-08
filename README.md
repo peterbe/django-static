@@ -64,7 +64,7 @@ The five template tags it enables are the following:
         <script src="/javascript/bar.js"></script>
         {% endstaticall %}
 
-    ...and you get this:
+   ...and you get this:
 
         <script src="/javascript/foo_bar.123456789.js"></script>
 
@@ -76,6 +76,20 @@ The five template tags it enables are the following:
         <script src="/javascript/bar.js"></script>
         {% endslimall %}
 
+`staticall` and `slimall` fully support `async` or `defer`
+JavaScript attributes. Meaning this:
+
+        {% slimall %}
+        <script defer src="/javascript/foo.js"></script>
+        <script defer src="/javascript/bar.js"></script>
+        {% endslimall %}
+
+...will give you this:
+
+        <script defer src="/javascript/foo_bar.123456789.js"></script>
+
+Be careful not to mix the two attributes within the same blocks
+or you might get unexpected results.
 
 Configuration
 -------------
