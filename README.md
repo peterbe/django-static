@@ -12,19 +12,19 @@ unique (timestamp included in the name) you can be very aggressive
 with your cache-control settings without ever having to worry about
 upgrading your code and worrying about visitors using an older version.
 
-The three template tags it enables are the following:
+The five template tags it enables are the following:
 
 1. `staticfile` Takes the timestamp of the file, and makes a copy by
-   symlinking as you define. You use it like this::
-   
+   symlinking as you define. You use it like this:
+
         <img src="{% staticfile "/images/foo.png" %}"/>
-	
+
    and the following is rendered:
-   
+
         <img src="/images/foo.123456789.png"/>
-	
-   ...assuming the epoch timestamp of the file is 123456789. 
-   
+
+   ...assuming the epoch timestamp of the file is 123456789.
+
 2. `slimfile` Works the same as `staticfile` but instead of copying
    the file as a symlink it actually rewrites the file and compresses
    it through [slimmer](http://pypi.python.org/pypi/slimmer/). This of
@@ -33,36 +33,56 @@ The three template tags it enables are the following:
    cool thing about doing this for `.css` files it finds all relative
    images inside and applies `staticfile` for all of them too. You use
    it just like `staticfile`:
-   
+
         <script type="text/javascript"
           src="{% slimfile "/javascript/myscript.js" %}"></script>
-	  
+
 3. `slimcontent` is used to whitespace compress content right in the
-   template. It requires a format paramter which can be `"js"`,
+   template. It requires a format parameter which can be `"js"`,
    `"css"` or `"html"`. So, for example for some inline CSS content
    you do this:
-   
+
         <style type="text/css">
         {% slimcontent "css" %}
-        h1, h2, h3 { 
-	    font-face:'Trebuchet MS', Verdana, Arial; 
+        h1, h2, h3 {
+	    font-face:'Trebuchet MS', Verdana, Arial;
         }
         {% endslimcontent %}
         </style>
-	
+
    ...and you get this:
-   
+
         <style type="text/css">
         h1,h2,h3{font-face:'Trebuchet MS',Verdana,Arial}
         </style>
-	
-	
+
+4. `staticall` combines all files between the tags into one and
+   makes the same symlinking as `staticfile`. Write this:
+
+        {% staticall %}
+        <script src="/javascript/foo.js"></script>
+        <script src="/javascript/bar.js"></script>
+        {% endstaticall %}
+
+    ...and you get this:
+
+        <script src="/javascript/foo_bar.123456789.js"></script>
+
+5. `slimall` does the same compression `slimfile` does but also
+   combines the files as `staticall`. Use it like `staticall`:
+
+        {% slimall %}
+        <script src="/javascript/foo.js"></script>
+        <script src="/javascript/bar.js"></script>
+        {% endslimall %}
+
+
 Configuration
 -------------
 
 `django_static` will be disabled by default. It's not until you set
 `DJANGO_STATIC = True` in your settings module that it actually starts
-to work for you. 
+to work for you.
 
 By default, when `django_static` slims files or makes symlinks with
 timestamps in the filename, it does this into the same directory as
@@ -74,25 +94,29 @@ If you, for the sake of setting up your nginx/varnish/apache2, want
 change the name the files get you can set
 `DJANGO_STATIC_NAME_PREFIX = "/cache-forever"` as this will make it easier
 to write a rewrite rule/regular expression that in
-nginx/varnish/apache2 deliberately sets extra aggressive caching. 
+nginx/varnish/apache2 deliberately sets extra aggressive caching.
 
 Another option is to let django_static take care of setting your
 `MEDIA_URL`. You could do this:
 
         <img src="{{ MEDIA_URL }}{% staticfile "/foo.png" %}"/>
-	
+
 But if you're feeling lazy and what django_static to automatically
 take care of it set `DJANGO_STATIC_MEDIA_URL`. In settings.py:
 
         DJANGO_STATIC_MEDIA_URL = "http://static.example.com"
-	
+
 In your template:
 
         <img src="{% staticfile "/foo.png" %}"/>
-	
+
 And you get this result:
 
         <img src="http://static.example.com/foo.1247785534.png"/>
+
+Right out of the box, `DJANGO_STATIC_MEDIA_URL` will not be active 
+if `DJANGO_STATIC = False`. If you want it to be, set 
+`DJANGO_STATIC_MEDIA_URL_ALWAYS = True`.
 
 By default django_static will look for source files in `MEDIA_ROOT`,
 but it is possible tell django_static to look in all directories listed
@@ -112,18 +136,18 @@ example, can do something with the information such as uploading to a
 CDN. To get started set the config:
 
         DJANGO_STATIC_FILE_PROXY = 'mycdn.cdn_uploader_file_proxy'
-        
+
 This is expected to be the equivalent of this import statement:
 
         from mycdn import cdn_uploader_file_proxy
-        
+
 Where `mycdn` is a python module (e.g. `mycdn.py`) and
 `cdn_uploader_file_proxy` is a regular python function. Here's the
 skeleton for that function:
 
         def cdn_uploader_file_proxy(uri, **kwargs):
             return uri
-            
+
 Now, it's inside those keyword arguments that you get the juicy gossip
 about what `django_static` has done with the file. These are the
 pieces of information you will always get inside those keyword
@@ -133,7 +157,7 @@ argments:
         checked = False
         changed = False
         notfound = False
-        
+
 The names hopefully speak for themselves. They become `True` depending
 on what `django_static` has done. For example, if you change your
 `foo.js` and re-run the template it's not `new` but it will be `checked`
@@ -152,7 +176,7 @@ like this:
             return on_my_cdn.get(uri, uri)
 
 
-	
+
 Using Google Closure Compiler
 -----------------------------
 
@@ -163,7 +187,7 @@ make sure your systam can run java. Suppose you download it in
 /usr/local/bin, the set this variable in your settings.py file:
 
         DJANGO_STATIC_CLOSURE_COMPILER = '/usr/local/bin/compiler.jar'
-        
+
 If for some reason the compiler chokes on your Javascript it won't
 halt the serving of the file but it won't be whitespace optimized and
 the error will be inserted into the resulting Javascript file as a big
@@ -178,7 +202,7 @@ Just like the Google Closure Compiler, you need to download the jar
 file and then set something like this in your settings.py:
 
         DJANGO_STATIC_YUI_COMPRESSOR = '/path/to/yuicompressor-2.4.2.jar'
-	
+
 If you configure the Google Closure Compiler **and** YUI Compressor,
 the Google Closure Compiler will be first choice for Javascript
 compression.
@@ -191,15 +215,10 @@ package that is capable of whitespace optimizing CSS, HTML, XHTML and
 Javascript. It's faster than the YUI Compressor and Google Closure but
 that speed difference is due to the start-stop time of bridging the
 Java files.
-	
+
 How to hook this up with nginx
 ------------------------------
 
 Read [this blog entry on
 peterbe.com](http://www.peterbe.com/plog/serve-your-static-stuff-in-django-with-nginx)
 
-
-	       
-	
-   
-   

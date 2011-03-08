@@ -37,6 +37,7 @@ DJANGO_STATIC = getattr(settings, 'DJANGO_STATIC', False)
 DJANGO_STATIC_SAVE_PREFIX = getattr(settings, 'DJANGO_STATIC_SAVE_PREFIX', '')
 DJANGO_STATIC_NAME_PREFIX = getattr(settings, 'DJANGO_STATIC_NAME_PREFIX', '')
 MEDIA_URL = getattr(settings, "DJANGO_STATIC_MEDIA_URL", None)
+MEDIA_URL_ALWAYS = getattr(settings, "DJANGO_STATIC_MEDIA_URL_ALWAYS", False)
 MEDIA_ROOTS = getattr(settings, "DJANGO_STATIC_MEDIA_ROOTS",
         [ settings.MEDIA_ROOT ])
 
@@ -184,7 +185,7 @@ class StaticFileNode(template.Node):
     def render(self, context):
         filename = self.filename_var.resolve(context)
         if not DJANGO_STATIC:
-            if MEDIA_URL:
+            if MEDIA_URL_ALWAYS:
                 return os.path.normpath(MEDIA_URL + filename)
             return filename
 
@@ -250,7 +251,7 @@ class StaticFilesNode(template.Node):
         if not DJANGO_STATIC:
             # Append MEDIA_URL if set
             # quick and dirty
-            if MEDIA_URL:
+            if MEDIA_URL_ALWAYS:
                 for match in STYLES_REGEX.finditer(code):
                     for filename in match.groups():
                         code = (code.replace(filename,
@@ -357,7 +358,7 @@ def _static_file(filename,
         return file_proxy(filename, disabled=True)
 
     def wrap_up(filename):
-        if MEDIA_URL:
+        if MEDIA_URL_ALWAYS:
             return os.path.normpath(MEDIA_URL + filename)
         return filename
 
