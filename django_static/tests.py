@@ -11,10 +11,11 @@ from unittest import TestCase
 from shutil import rmtree
 import warnings
 
+import django_static.templatetags.django_static as _django_static
 from django_static.templatetags.django_static import _static_file, _combine_filenames
-import django_static.templatetags.django_static
+
 def _slim_file(x, symlink_if_possible=False,):
-    return _static_file(x, optimize_if_possible=True,
+    return _django_static._static_file(x, optimize_if_possible=True,
                         symlink_if_possible=symlink_if_possible)
 
 try:
@@ -54,6 +55,7 @@ for name in [ "DEBUG",
               "DJANGO_STATIC_SAVE_PREFIX",
               "DJANGO_STATIC_NAME_PREFIX",
               "DJANGO_STATIC_MEDIA_URL",
+              "DJANGO_STATIC_MEDIA_URL_ALWAYS",
               "DJANGO_STATIC_FILE_PROXY",
               "DJANGO_STATIC_USE_SYMLINK",
               "DJANGO_STATIC_CLOSURE_COMPILER",
@@ -85,6 +87,7 @@ class TestDjangoStatic(TestCase):
         settings.DJANGO_STATIC_SAVE_PREFIX = ""
         settings.DJANGO_STATIC_NAME_PREFIX = ""
         settings.DJANGO_STATIC_MEDIA_URL = ""
+        settings.DJANGO_STATIC_MEDIA_URL_ALWAYS = False
         settings.DJANGO_STATIC_USE_SYMLINK = True
         settings.DJANGO_STATIC_FILE_PROXY = None
         settings.DJANGO_STATIC_CLOSURE_COMPILER = None
@@ -127,13 +130,13 @@ class TestDjangoStatic(TestCase):
                      '/somewhere/different/too/foobar.js']
         expect = '/somewhere/foo_bar_foobar.js'
 
-        self.assertEqual(_combine_filenames(filenames), expect)
+        self.assertEqual(_django_static._combine_filenames(filenames), expect)
 
         filenames = ['/foo.1243892792.js',
                      '/bar.1243893111.js',
                      '/foobar.js']
         expect = '/foo_bar_foobar.1243893111.js'
-        self.assertEqual(_combine_filenames(filenames), expect)
+        self.assertEqual(_django_static._combine_filenames(filenames), expect)
 
 
     def test__combine_long_filenames(self):
@@ -143,7 +146,7 @@ class TestDjangoStatic(TestCase):
                      for x in range(10)]
         expect = '/jquery_something_0_jquery_something_1_jq.js'
 
-        self.assertEqual(_combine_filenames(filenames), expect)
+        self.assertEqual(_django_static._combine_filenames(filenames), expect)
 
 
     def test_staticfile_django_static_off(self):
@@ -825,7 +828,7 @@ class TestDjangoStatic(TestCase):
         template = Template(template_as_string)
         context = Context()
         rendered = template.render(context).strip()
-        expect_filename = _combine_filenames(filenames)
+        expect_filename = _django_static._combine_filenames(filenames)
         bits = expect_filename.split('.')
         expect_filename = expect_filename[:-3]
         expect_filename += '.%s%s' % (now, os.path.splitext(filenames[0])[1])
@@ -911,7 +914,7 @@ class TestDjangoStatic(TestCase):
         template = Template(template_as_string)
         context = Context()
         rendered = template.render(context).strip()
-        expect_filename = _combine_filenames(filenames)
+        expect_filename = _django_static._combine_filenames(filenames)
         bits = expect_filename.split('.')
         expect_filename = expect_filename[:-3]
         expect_filename += '.%s%s' % (now, os.path.splitext(filenames[0])[1])
@@ -1111,7 +1114,7 @@ class TestDjangoStatic(TestCase):
             self.assertEqual(rendered.count('<link '), minimum,
                              rendered.count('<link '))
 
-        expect_filename = _combine_filenames(filenames)
+        expect_filename = _django_static._combine_filenames(filenames)
         bits = expect_filename.split('.')
         if filenames[0].endswith('.js'):
             expect_filename = expect_filename[:-3]
@@ -1196,7 +1199,9 @@ class TestDjangoStatic(TestCase):
         # being installed, we'll skip the fancy functions and go straight to the
         # ultimate _static_file function
         reload(sys.modules['django_static.templatetags.django_static'])
-        result = _static_file('css/base.css', optimize_if_possible=False, symlink_if_possible=False)
+        result = _django_static._static_file('css/base.css',
+                                             optimize_if_possible=False,
+                                             symlink_if_possible=False)
         # expect the result to be something like css/base.1273229589.css
         self.assertTrue(result.startswith('css/base.'))
         self.assertTrue(re.findall('base\.\d+\.css', result))
@@ -1532,7 +1537,7 @@ class TestDjangoStatic(TestCase):
     def test_load_file_proxy(self):
 
         settings.DEBUG = False
-        func = django_static.templatetags.django_static._load_file_proxy
+        func = _django_static._load_file_proxy
 
         if hasattr(settings, 'DJANGO_STATIC_FILE_PROXY'):
             del settings.DJANGO_STATIC_FILE_PROXY
@@ -1561,7 +1566,7 @@ class TestDjangoStatic(TestCase):
         self.assertNotEqual(proxy_function.func_name, 'file_proxy_nothing')
 
         # but that's not enough, now we need to "monkey patch" this usage
-        django_static.templatetags.django_static.file_proxy = proxy_function
+        _django_static.file_proxy = proxy_function
 
         # now with this set up it will start to proxy and staticfile() or slimfile()
 
@@ -1602,7 +1607,7 @@ class TestDjangoStatic(TestCase):
         # It should still go through the configured file proxy function
         settings.DJANGO_STATIC = False
         rendered = template.render(context).strip()
-        assert rendered == '/img100.gif'
+        self.assertEqual(rendered, '/img100.gif')
         self.assertFalse(_last_fake_file_keyword_arguments['checked'])
         self.assertFalse(_last_fake_file_keyword_arguments['changed'])
 
@@ -1616,10 +1621,10 @@ class TestDjangoStatic(TestCase):
 
         # set up the file proxy
         settings.DJANGO_STATIC_FILE_PROXY = 'django_static.tests.fake_file_proxy'
-        func = django_static.templatetags.django_static._load_file_proxy
+        func = _django_static._load_file_proxy
         proxy_function = func()
         # but that's not enough, now we need to "monkey patch" this usage
-        django_static.templatetags.django_static.file_proxy = proxy_function
+        _django_static.file_proxy = proxy_function
 
         template_as_string = """{% load django_static %}
         {% staticfile "/imgXXX.gif" %}
@@ -1933,40 +1938,116 @@ class TestDjangoStatic(TestCase):
         if slimmer is None:
             return
         self.assertTrue(u"src:url('/da39a3ee5e.eot');src:local('\u263a')," in content)
-        
+
     def test_ignoring_data_uri_scheme(self):
         settings.DEBUG = False
         settings.DJANGO_STATIC = True
-        
+
         html = u"""
             <img src="pax.jpg" />
             <img src="data_foo.jpg" />
             <img src="data:image/png;..." />
             <img src="data:foo/bar;..." />
         """
-        
+
         css = u"""
             @font-face {
                src: url('da39a3ee5e.eot');
                src: local('☺'), url(data:font/woff;charset=utf-8;base64,[ snip ]) format('truetype');
             }
-            
+
             a {
                 background: url(pax.jpg)
             }
-            
+
             strong {
                 background: url('data_yadda.jpg')
             }
         """
-        
+
         # first test some html
-        re_html = re.findall(django_static.templatetags.django_static.IMG_REGEX, html)
+        re_html = re.findall(_django_static.IMG_REGEX, html)
         self.assertEqual(re_html, [u'pax.jpg', u'data_foo.jpg'])
 
         # test some css
-        re_css = re.findall(django_static.templatetags.django_static.REFERRED_CSS_URLS_REGEX, css)
+        re_css = re.findall(_django_static.REFERRED_CSS_URLS_REGEX, css)
         self.assertEqual(re_css, [u"'da39a3ee5e.eot'", u'pax.jpg', u"'data_yadda.jpg'"])
+
+    def test_slimall_with_defer(self):
+        settings.DEBUG = False
+        settings.DJANGO_STATIC = True
+
+        template_as_string = u"""
+            {% load django_static %}
+            {% slimall %}
+            <script defer src="/foo.js"></script>
+            <script defer src="/bar.js"></script>
+            {% endslimall %}
+        """
+
+        filename = "/foo.js"
+        test_filepath = settings.MEDIA_ROOT + filename
+        open(test_filepath, 'w').write("""
+        function (var) { return var++; }
+        """)
+
+        filename = "/bar.js"
+        test_filepath = settings.MEDIA_ROOT + filename
+        open(test_filepath, 'w').write("""
+        function (var) { return var++; }
+        """)
+
+        template = Template(template_as_string)
+        context = Context()
+        rendered = template.render(context).strip()
+        self.assertTrue(rendered.startswith(u'<script defer src="/foo_bar.'))
+
+    def test_setting__DJANGO_STATIC_MEDIA_URL_ALWAYS(self):
+        settings.DEBUG = True
+        settings.DJANGO_STATIC = False
+        settings.DJANGO_STATIC_MEDIA_URL_ALWAYS = False
+        settings.DJANGO_STATIC_MEDIA_URL = "//cdn"
+
+        filename = "/foo.js"
+        test_filepath = settings.MEDIA_ROOT + filename
+        open(test_filepath, 'w').write('samplecode()\n')
+
+        template_as_string = """{% load django_static %}
+        {% staticfile "/foo.js" %}
+        """
+        template = Template(template_as_string)
+        context = Context()
+        rendered = template.render(context).strip()
+        self.assertEqual(rendered, u"/foo.js")
+
+        settings.DJANGO_STATIC_MEDIA_URL_ALWAYS = True
+        rendered = template.render(context).strip()
+        self.assertEqual(rendered, u"//cdn/foo.js")
+
+        settings.DJANGO_STATIC = True
+        rendered = template.render(context).strip()
+        self.assertTrue(re.findall("//cdn/foo\.\d+\.js", rendered))
+
+        settings.DJANGO_STATIC = False
+
+        filename = "/bar.js"
+        test_filepath = settings.MEDIA_ROOT + filename
+        open(test_filepath, 'w').write('samplecode()\n')
+
+        template_as_string = """{% load django_static %}
+        {% slimall %}
+        <script src="/bar.js"></script>
+        {% endslimall %}
+        """
+        template = Template(template_as_string)
+        context = Context()
+        rendered = template.render(context).strip()
+        self.assertEqual(rendered, u'<script src="//cdn/bar.js"></script>')
+
+        settings.DJANGO_STATIC = True
+        rendered = template.render(context).strip()
+        self.assertTrue(rendered.startswith(u'<script src="//cdn/bar.'))
+        self.assertTrue(re.findall("//cdn/bar\.\d+\.js", rendered))
 
 # These have to be mutable so that we can record that they have been used as
 # global variables.
