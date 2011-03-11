@@ -488,7 +488,7 @@ def _static_file(filename,
             content = new_file_content.getvalue()
         else:
             #content = open(filepath).read()
-            content = codecs.open(filepath, 'r', 'utf-8').read()
+            content = codecs.open(filepath, 'r', 'utf_8').read()
         if new_filename.endswith('.js') and has_optimizer(JS):
             content = optimize(content, JS)
         elif new_filename.endswith('.css') and has_optimizer(CSS):
@@ -542,7 +542,7 @@ def _static_file(filename,
             raise ValueError(
               "Unable to slimmer file %s. Unrecognized extension" % new_filename)
         #print "** STORING:", new_filepath
-        codecs.open(new_filepath, 'w', 'utf8').write(content)
+        codecs.open(new_filepath, 'w', 'utf_8').write(content)
     elif symlink_if_possible and not is_combined_files:
         #print "** SYMLINK:", filepath, '-->', new_filepath
 
