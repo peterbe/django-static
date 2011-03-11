@@ -33,11 +33,11 @@ else:
     _CAN_SYMLINK = getattr(settings, "DJANGO_STATIC_USE_SYMLINK", True)
 
 DEBUG = settings.DEBUG
-DJANGO_STATIC = getattr(settings, 'DJANGO_STATIC', False)
+settings.DJANGO_STATIC = getattr(settings, 'DJANGO_STATIC', False)
 DJANGO_STATIC_SAVE_PREFIX = getattr(settings, 'DJANGO_STATIC_SAVE_PREFIX', '')
 DJANGO_STATIC_NAME_PREFIX = getattr(settings, 'DJANGO_STATIC_NAME_PREFIX', '')
-MEDIA_URL = getattr(settings, "DJANGO_STATIC_MEDIA_URL", None)
-MEDIA_URL_ALWAYS = getattr(settings, "DJANGO_STATIC_MEDIA_URL_ALWAYS", False)
+settings.DJANGO_STATIC_MEDIA_URL_ALWAYS = \
+  getattr(settings, "DJANGO_STATIC_MEDIA_URL_ALWAYS", False)
 MEDIA_ROOTS = getattr(settings, "DJANGO_STATIC_MEDIA_ROOTS",
         [ settings.MEDIA_ROOT ])
 
@@ -184,9 +184,9 @@ class StaticFileNode(template.Node):
 
     def render(self, context):
         filename = self.filename_var.resolve(context)
-        if not DJANGO_STATIC:
-            if MEDIA_URL_ALWAYS:
-                return os.path.normpath(MEDIA_URL + filename)
+        if not settings.DJANGO_STATIC:
+            if settings.DJANGO_STATIC_MEDIA_URL_ALWAYS:
+                return settings.DJANGO_STATIC_MEDIA_URL + filename
             return filename
 
         new_filename = _static_file([x.strip() for x in filename.split(';')],
@@ -248,19 +248,19 @@ class StaticFilesNode(template.Node):
         which we already have routines for doing.
         """
         code = self.nodelist.render(context)
-        if not DJANGO_STATIC:
+        if not settings.DJANGO_STATIC:
             # Append MEDIA_URL if set
             # quick and dirty
-            if MEDIA_URL_ALWAYS:
+            if settings.DJANGO_STATIC_MEDIA_URL_ALWAYS:
                 for match in STYLES_REGEX.finditer(code):
                     for filename in match.groups():
                         code = (code.replace(filename,
-                                os.path.normpath(MEDIA_URL + filename)))
+                                             settings.DJANGO_STATIC_MEDIA_URL + filename))
 
                 for match in SCRIPTS_REGEX.finditer(code):
                     for filename in match.groups():
                         code = (code.replace(filename,
-                                os.path.normpath(MEDIA_URL + filename)))
+                                             settings.DJANGO_STATIC_MEDIA_URL + filename))
 
                 return code
 
@@ -354,12 +354,12 @@ def _static_file(filename,
                  warn_no_file=True):
     """
     """
-    if not DJANGO_STATIC:
+    if not settings.DJANGO_STATIC:
         return file_proxy(filename, disabled=True)
 
     def wrap_up(filename):
-        if MEDIA_URL_ALWAYS:
-            return os.path.normpath(MEDIA_URL + filename)
+        if settings.DJANGO_STATIC_MEDIA_URL_ALWAYS:
+            return settings.DJANGO_STATIC_MEDIA_URL + filename
         return filename
 
     is_combined_files = isinstance(filename, list)
