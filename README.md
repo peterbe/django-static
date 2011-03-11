@@ -118,7 +118,7 @@ Another option is to let django_static take care of setting your
 But if you're feeling lazy and what django_static to automatically
 take care of it set `DJANGO_STATIC_MEDIA_URL`. In settings.py:
 
-        DJANGO_STATIC_MEDIA_URL = "http://static.example.com"
+        DJANGO_STATIC_MEDIA_URL = "//static.example.com"
 
 In your template:
 
@@ -126,7 +126,7 @@ In your template:
 
 And you get this result:
 
-        <img src="http://static.example.com/foo.1247785534.png"/>
+        <img src="//static.example.com/foo.1247785534.png"/>
 
 Right out of the box, `DJANGO_STATIC_MEDIA_URL` will not be active 
 if `DJANGO_STATIC = False`. If you want it to be, set 
