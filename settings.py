@@ -94,5 +94,5 @@ INSTALLED_APPS = (
 DJANGO_STATIC = True
 
 #DJANGO_STATIC_CLOSURE_COMPILER = '/home/peterbe/tmp/compiler-latest/compiler.jar'
-
 #DJANGO_STATIC_YUI_COMPRESSOR = '/home/peterbe/tmp/yuicompressor-2.4.2/build/yuicompressor-2.4.2.jar'
+#DJANGO_STATIC_CSSMIN = True

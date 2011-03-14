@@ -18,14 +18,19 @@ from django.template import TemplateSyntaxError
 register = template.Library()
 
 try:
-    from slimmer import (css_slimmer, guessSyntax, html_slimmer, js_slimmer,
-            xhtml_slimmer)
+    from slimmer import (css_slimmer, guessSyntax, html_slimmer, js_slimmer, xhtml_slimmer)
     slimmer = 'installed'
 except ImportError:
     slimmer = None
     # because if it's import, it's much better to rely on YUI Compressor
     # and Google Closure compiler.
     #warnings.warn("slimmer is not installed. (easy_install slimmer)")
+
+try:
+    import cssmin
+except ImportError:
+    warnings.warn("cssmin is not installed. (easy_install cssmin)")
+
 
 if sys.platform == "win32":
     _CAN_SYMLINK = False
@@ -700,13 +705,14 @@ def has_optimizer(type_):
     if type_ == CSS:
         if getattr(settings, 'DJANGO_STATIC_YUI_COMPRESSOR', None):
             return True
+        if getattr(settings, 'DJANGO_STATIC_CSSMIN', None):
+            return True
         return slimmer is not None
     elif type_ == JS:
         if getattr(settings, 'DJANGO_STATIC_CLOSURE_COMPILER', None):
             return True
         if getattr(settings, 'DJANGO_STATIC_YUI_COMPRESSOR', None):
             return True
-
         return slimmer is not None
     else:
         raise ValueError("Invalid type %r" % type_)
@@ -715,6 +721,8 @@ def optimize(content, type_):
     if type_ == CSS:
         if getattr(settings, 'DJANGO_STATIC_YUI_COMPRESSOR', None):
             return _run_yui_compressor(content, type_)
+        if getattr(settings, 'DJANGO_STATIC_CSSMIN', None):
+            return _run_cssmin(content)
         return css_slimmer(content)
     elif type_ == JS:
         if getattr(settings, 'DJANGO_STATIC_CLOSURE_COMPILER', None):
@@ -758,3 +766,8 @@ def _run_yui_compressor(code, type_):
         return "/* ERRORS WHEN RUNNING YUI COMPRESSOR\n" + stderrdata + '\n*/\n' + code
 
     return stdoutdata
+
+
+def _run_cssmin(code):
+    output = cssmin.cssmin(code)
+    return output
