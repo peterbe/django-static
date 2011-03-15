@@ -23,6 +23,7 @@ setup(
       license='BSD',
       packages=[
         'django_static',
+        'django_static.filters',
         'django_static.templatetags',
         ],
       classifiers=[
@@ -35,5 +36,4 @@ setup(
         'Topic :: Software Development :: Libraries :: Application Frameworks',
         'Topic :: Software Development :: Libraries :: Python Modules',
         ],
-      include_package_data=True,
 )

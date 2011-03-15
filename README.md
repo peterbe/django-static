@@ -190,6 +190,21 @@ like this:
             return on_my_cdn.get(uri, uri)
 
 
+Compression Filters
+---------------------------
+
+Default (cssmin)
+----------------------------
+django-static uses cssmin by default if it is installed.
+Get the source here: https://github.com/zacharyvoase/cssmin
+
+Using jsmin
+----------------------------
+If you would like to use jsmin instead of default js_slimmer, you just need to set
+the variable in your settings.py file:
+	
+	DJANGO_STATIC_JSMIN = True
+
 
 Using Google Closure Compiler
 -----------------------------

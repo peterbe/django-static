@@ -28,8 +28,15 @@ except ImportError:
 
 try:
     import cssmin
+    __cssmin_installed__ = True
 except ImportError:
-    warnings.warn("cssmin is not installed. (easy_install cssmin)")
+    __cssmin_installed__ = False
+
+try:
+    from ..filters import jsmin
+    __jsmin_installed__ = True
+except ImportError:
+    __jsmin_installed__ = False
 
 
 if sys.platform == "win32":
@@ -705,13 +712,13 @@ def has_optimizer(type_):
     if type_ == CSS:
         if getattr(settings, 'DJANGO_STATIC_YUI_COMPRESSOR', None):
             return True
-        if getattr(settings, 'DJANGO_STATIC_CSSMIN', None):
-            return True
-        return slimmer is not None
+        return slimmer is not None or __cssmin_installed__
     elif type_ == JS:
         if getattr(settings, 'DJANGO_STATIC_CLOSURE_COMPILER', None):
             return True
         if getattr(settings, 'DJANGO_STATIC_YUI_COMPRESSOR', None):
+            return True
+        if getattr(settings, 'DJANGO_STATIC_JSMIN', None):
             return True
         return slimmer is not None
     else:
@@ -719,16 +726,18 @@ def has_optimizer(type_):
 
 def optimize(content, type_):
     if type_ == CSS:
-        if getattr(settings, 'DJANGO_STATIC_YUI_COMPRESSOR', None):
+        if __cssmin_installed__:
+            return _run_cssmin(content)    
+        elif getattr(settings, 'DJANGO_STATIC_YUI_COMPRESSOR', None):
             return _run_yui_compressor(content, type_)
-        if getattr(settings, 'DJANGO_STATIC_CSSMIN', None):
-            return _run_cssmin(content)
         return css_slimmer(content)
     elif type_ == JS:
         if getattr(settings, 'DJANGO_STATIC_CLOSURE_COMPILER', None):
             return _run_closure_compiler(content)
         if getattr(settings, 'DJANGO_STATIC_YUI_COMPRESSOR', None):
             return _run_yui_compressor(content, type_)
+        if getattr(settings, 'DJANGO_STATIC_JSMIN', None):
+            return _run_jsmin(content)
         return js_slimmer(content)
     else:
         raise ValueError("Invalid type %r" % type_)
@@ -770,4 +779,8 @@ def _run_yui_compressor(code, type_):
 
 def _run_cssmin(code):
     output = cssmin.cssmin(code)
+    return output
+
+def _run_jsmin(code):
+    output = jsmin.jsmin(code)
     return output
