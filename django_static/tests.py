@@ -32,23 +32,24 @@ from django.template import Template
 from django.template import Context
 import django.template
 
-# Monkey patch the {% load ... %} tag to always reload our code
-# so it can pick up any changes to "settings.py" that happens during
-# unit tests
-_original_get_library = django.template.get_library
-def get_library_wrapper(library_name):
-    if library_name == "django_static":
-        reload(sys.modules['django_static.templatetags.django_static'])
-    return _original_get_library(library_name)
-django.template.get_library = get_library_wrapper
-reload(sys.modules['django.template.defaulttags'])
+## Monkey patch the {% load ... %} tag to always reload our code
+## so it can pick up any changes to "settings.py" that happens during
+## unit tests
+#_original_get_library = django.template.get_library
+#def get_library_wrapper(library_name):
+#    if library_name == "django_static":
+#        reload(sys.modules['django_static.templatetags.django_static'])
+#    return _original_get_library(library_name)
+#django.template.get_library = get_library_wrapper
+#reload(sys.modules['django.template.defaulttags'])
 
 _GIF_CONTENT = 'R0lGODlhBgAJAJEDAGmaywBUpv///////yH5BAEAAAMALAAAAAAGAAkAAAIRnBFwITEoGoyBRWnb\ns27rBRQAOw==\n'
 _GIF_CONTENT_DIFFERENT = 'R0lGODlhBAABAJEAANHV3ufr7qy9xGyiyCH5BAAAAAAALAAAAAAEAAEAAAIDnBAFADs=\n'
 
 #TEST_MEDIA_ROOT = os.path.join(gettempdir(), 'fake_media_root')
 #_original_MEDIA_ROOT = settings.MEDIA_ROOT
-_MISSING = id(get_library_wrapper) # get semi-random mark
+#_MISSING = id(get_library_wrapper) # get semi-random mark
+_marker = object()
 _saved_settings = []
 for name in [ "DEBUG",
               "DJANGO_STATIC",
@@ -60,7 +61,7 @@ for name in [ "DEBUG",
               "DJANGO_STATIC_USE_SYMLINK",
               "DJANGO_STATIC_CLOSURE_COMPILER",
               "DJANGO_STATIC_MEDIA_ROOTS" ]:
-    _saved_settings.append((name, getattr(settings, name, _MISSING)))
+    _saved_settings.append((name, getattr(settings, name, _marker)))
 
 class TestDjangoStatic(TestCase):
 
@@ -91,8 +92,9 @@ class TestDjangoStatic(TestCase):
         settings.DJANGO_STATIC_USE_SYMLINK = True
         settings.DJANGO_STATIC_FILE_PROXY = None
         settings.DJANGO_STATIC_CLOSURE_COMPILER = None
-        if hasattr(settings, "DJANGO_STATIC_MEDIA_ROOTS"):
-            del settings.DJANGO_STATIC_MEDIA_ROOTS
+        #if hasattr(settings, "DJANGO_STATIC_MEDIA_ROOTS"):
+        #    del settings.DJANGO_STATIC_MEDIA_ROOTS
+        settings.DJANGO_STATIC_MEDIA_ROOTS = [settings.MEDIA_ROOT]
 
         super(TestDjangoStatic, self).setUp()
 
@@ -108,7 +110,7 @@ class TestDjangoStatic(TestCase):
 
         # restore things for other potential tests
         for name, value in _saved_settings:
-            if value == _MISSING and hasattr(settings, name):
+            if value == _marker and hasattr(settings, name):
                 delattr(settings, name)
             else:
                 setattr(settings, name, value)
@@ -338,7 +340,9 @@ class TestDjangoStatic(TestCase):
         processed files are stored there.
         """
 
+
         dir1 = settings.MEDIA_ROOT
+        assert dir1.startswith(gettempdir())
         dir2 = self._mkdir()
         settings.DJANGO_STATIC_MEDIA_ROOTS = [ dir1, dir2 ]
         dir3 = self._mkdir()

@@ -18,40 +18,41 @@ from django.template import TemplateSyntaxError
 register = template.Library()
 
 try:
-    from slimmer import (css_slimmer, guessSyntax, html_slimmer, js_slimmer, xhtml_slimmer)
-    slimmer = 'installed'
+    import slimmer
 except ImportError:
     slimmer = None
-    # because if it's import, it's much better to rely on YUI Compressor
-    # and Google Closure compiler.
-    #warnings.warn("slimmer is not installed. (easy_install slimmer)")
 
 try:
     import cssmin
-    __cssmin_installed__ = True
 except ImportError:
-    __cssmin_installed__ = False
+    cssmin = None
 
 try:
-    from ..filters import jsmin
-    __jsmin_installed__ = True
+    import jsmin
 except ImportError:
-    __jsmin_installed__ = False
+    jsmin = None
 
+################################################################################
+# The reason we're setting all of these into `settings` is so that in the code
+# we can do things like `if settings.DJANGO_STATIC:` rather than the verbose
+# and ugly `getattr(settings, 'DJANGO_STATIC')`.
+# And the reason why these aren't set as constants variables is to make the code
+# much easier to test because in the unit tests we can then do
+# settings.DJANGO_STATIC_SAVE_PREFIX = '/tmp/test' and stuff like that.
+settings.DJANGO_STATIC_USE_SYMLINK = getattr(settings, "DJANGO_STATIC_USE_SYMLINK", True)
+settings.DJANGO_STATIC = getattr(settings, 'DJANGO_STATIC', False)
+settings.DJANGO_STATIC_SAVE_PREFIX = getattr(settings, 'DJANGO_STATIC_SAVE_PREFIX', '')
+settings.DJANGO_STATIC_NAME_PREFIX = getattr(settings, 'DJANGO_STATIC_NAME_PREFIX', '')
+settings.DJANGO_STATIC_MEDIA_URL_ALWAYS = \
+  getattr(settings, "DJANGO_STATIC_MEDIA_URL_ALWAYS", False)
+
+settings.MEDIA_ROOTS = getattr(settings, "DJANGO_STATIC_MEDIA_ROOTS",
+                               [settings.MEDIA_ROOT])
 
 if sys.platform == "win32":
     _CAN_SYMLINK = False
 else:
-    _CAN_SYMLINK = getattr(settings, "DJANGO_STATIC_USE_SYMLINK", True)
-
-DEBUG = settings.DEBUG
-settings.DJANGO_STATIC = getattr(settings, 'DJANGO_STATIC', False)
-DJANGO_STATIC_SAVE_PREFIX = getattr(settings, 'DJANGO_STATIC_SAVE_PREFIX', '')
-DJANGO_STATIC_NAME_PREFIX = getattr(settings, 'DJANGO_STATIC_NAME_PREFIX', '')
-settings.DJANGO_STATIC_MEDIA_URL_ALWAYS = \
-  getattr(settings, "DJANGO_STATIC_MEDIA_URL_ALWAYS", False)
-MEDIA_ROOTS = getattr(settings, "DJANGO_STATIC_MEDIA_ROOTS",
-        [ settings.MEDIA_ROOT ])
+    _CAN_SYMLINK = settings.DJANGO_STATIC_USE_SYMLINK
 
 # Wheree the mapping filename -> annotated_filename is kept
 _FILE_MAP = {}
@@ -107,16 +108,16 @@ class SlimContentNode(template.Node):
             return code
 
         if self.format not in ('css','js','html','xhtml'):
-            self.format = guessSyntax(code)
+            self.format = slimmer.guessSyntax(code)
 
         if self.format == 'css':
-            return css_slimmer(code)
+            return slimmer.css_slimmer(code)
         elif self.format in ('js', 'javascript'):
-            return js_slimmer(code)
+            return slimmer.js_slimmer(code)
         elif self.format == 'xhtml':
-            return xhtml_slimmer(code)
+            return slimmer.xhtml_slimmer(code)
         elif self.format == 'html':
-            return html_slimmer(code)
+            return slimmer.html_slimmer(code)
         else:
             raise TemplateSyntaxError("Unrecognized format for slimming content")
 
@@ -393,7 +394,7 @@ def _static_file(filename,
     # to bother with when in DEBUG mode because it adds one more
     # unnecessary operation.
     if new_filename:
-        if DEBUG:
+        if settings.DEBUG:
             # need to check if the original has changed
             old_new_filename = new_filename
             new_filename = None
@@ -418,7 +419,7 @@ def _static_file(filename,
                 filepath, path = _find_filepath_in_roots(each)
                 if not filepath:
                     raise OSError("Failed to find %s in %s" % (each,
-                        ",".join(MEDIA_ROOTS)))
+                        ",".join(settings.MEDIA_ROOTS)))
 
                 if extension:
                     if os.path.splitext(filepath)[1] != extension:
@@ -434,14 +435,14 @@ def _static_file(filename,
             # Set the root path of the combined files to the first entry
             # in the MEDIA_ROOTS list. This way django-static behaves a
             # little more predictible.
-            path = MEDIA_ROOTS[0]
+            path = settings.MEDIA_ROOTS[0]
             new_m_time = max(each_m_times)
 
         else:
             filepath, path = _find_filepath_in_roots(filename)
             if not filepath:
                 if warn_no_file:
-                    msg = "Can't find file %s in %s" % (filename, ",".join(MEDIA_ROOTS))
+                    msg = "Can't find file %s in %s" % (filename, ",".join(settings.MEDIA_ROOTS))
                     warnings.warn(msg)
                 return file_proxy(wrap_up(filename),
                                   **dict(fp_default_kwargs, filepath=filepath, notfound=True))
@@ -534,7 +535,7 @@ def _static_file(filename,
                 new_filename = _static_file(this_filename,
                                             symlink_if_possible=symlink_if_possible,
                                             optimize_if_possible=optimize_again,
-                                            warn_no_file=DEBUG and True or False)
+                                            warn_no_file=settings.DEBUG and True or False)
                 #print "new_filename", new_filename
                 #print "\n"
                 return match.group().replace(replace_with, new_filename)
@@ -630,7 +631,7 @@ def _mkdir(newdir):
 
 def _find_filepath_in_roots(filename):
     """Look for filename in all MEDIA_ROOTS, and return the first one found."""
-    for root in MEDIA_ROOTS:
+    for root in settings.MEDIA_ROOTS:
         filepath = _filename2filepath(filename, root)
         if os.path.isfile(filepath):
             return filepath, root
@@ -712,13 +713,14 @@ def has_optimizer(type_):
     if type_ == CSS:
         if getattr(settings, 'DJANGO_STATIC_YUI_COMPRESSOR', None):
             return True
-        return slimmer is not None or __cssmin_installed__
+        return slimmer is not None or cssmin is not None
     elif type_ == JS:
         if getattr(settings, 'DJANGO_STATIC_CLOSURE_COMPILER', None):
             return True
         if getattr(settings, 'DJANGO_STATIC_YUI_COMPRESSOR', None):
             return True
         if getattr(settings, 'DJANGO_STATIC_JSMIN', None):
+            assert jsmin is not None, "jsmin not installed"
             return True
         return slimmer is not None
     else:
@@ -726,11 +728,11 @@ def has_optimizer(type_):
 
 def optimize(content, type_):
     if type_ == CSS:
-        if __cssmin_installed__:
-            return _run_cssmin(content)    
+        if cssmin is not None:
+            return _run_cssmin(content)
         elif getattr(settings, 'DJANGO_STATIC_YUI_COMPRESSOR', None):
             return _run_yui_compressor(content, type_)
-        return css_slimmer(content)
+        return slimmer.css_slimmer(content)
     elif type_ == JS:
         if getattr(settings, 'DJANGO_STATIC_CLOSURE_COMPILER', None):
             return _run_closure_compiler(content)
@@ -738,7 +740,7 @@ def optimize(content, type_):
             return _run_yui_compressor(content, type_)
         if getattr(settings, 'DJANGO_STATIC_JSMIN', None):
             return _run_jsmin(content)
-        return js_slimmer(content)
+        return slimmer.js_slimmer(content)
     else:
         raise ValueError("Invalid type %r" % type_)
 
