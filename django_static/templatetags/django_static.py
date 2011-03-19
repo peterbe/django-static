@@ -324,8 +324,7 @@ class StaticFilesNode(template.Node):
             try:
                 media_type = media_regex.findall(whole_tag)[0]
             except IndexError:
-                # Because it's so common
-                media_type = 'screen'
+                media_type = ''
 
             for filename in match.groups():
                 new_css_filenames[media_type].append(filename)
@@ -335,10 +334,10 @@ class StaticFilesNode(template.Node):
         new_css_filenames_combined = {}
         if new_css_filenames:
             for media_type, filenames in new_css_filenames.items():
-                new_css_filenames_combined[media_type] = \
-                  _static_file(filenames,
-                               optimize_if_possible=self.optimize_if_possible,
-                               symlink_if_possible=self.symlink_if_possible)
+                r = _static_file(filenames,
+                                 optimize_if_possible=self.optimize_if_possible,
+                                 symlink_if_possible=self.symlink_if_possible)
+                new_css_filenames_combined[media_type] = r
 
 
         if new_js_filename:
@@ -351,8 +350,11 @@ class StaticFilesNode(template.Node):
             code = "%s%s" % (new_tag, code)
 
         for media_type, new_css_filename in new_css_filenames_combined.items():
-            new_tag = '<link rel="stylesheet" type="text/css" media="%s" href="%s"/>' % \
-              (media_type, new_css_filename)
+            extra_params = ''
+            if media_type:
+                extra_params += ' media="%s"' % media_type
+            new_tag = '<link rel="stylesheet"%s href="%s"/>' % \
+              (extra_params, new_css_filename)
             code = "%s%s" % (new_tag, code)
 
         return code
@@ -371,6 +373,8 @@ def _static_file(filename,
 
     def wrap_up(filename):
         if settings.DJANGO_STATIC_MEDIA_URL_ALWAYS:
+            return settings.DJANGO_STATIC_MEDIA_URL + filename
+        elif settings.DJANGO_STATIC_MEDIA_URL:
             return settings.DJANGO_STATIC_MEDIA_URL + filename
         return filename
 
@@ -533,28 +537,16 @@ def _static_file(filename,
                     this_filename = os.path.join(os.path.dirname(filename), this_filename)
                 optimize_again = optimize_if_possible and \
                                  this_filename.lower().endswith('.css') or False
-                #print "this_filename", this_filename
-                #print "optimize_again", optimize_again
                 new_filename = _static_file(this_filename,
                                             symlink_if_possible=symlink_if_possible,
                                             optimize_if_possible=optimize_again,
                                             warn_no_file=settings.DEBUG and True or False)
-                #print "new_filename", new_filename
-                #print "\n"
                 return match.group().replace(replace_with, new_filename)
 
-            #print "FILENAME"
-            #print filename
-            #print "CONTENT (PRE)"
-            #print content
             content = REFERRED_CSS_URLS_REGEX.sub(replacer, content)
-            #print "(AFTER)"
             content = REFERRED_CSS_URLLESS_IMPORTS_REGEX.sub(replacer, content)
-            #print "COMPLETELY AFTER"
-            #print content
 
-
-        elif slimmer:
+        elif slimmer or cssmin:
             raise ValueError(
               "Unable to slimmer file %s. Unrecognized extension" % new_filename)
         #print "** STORING:", new_filepath
@@ -725,7 +717,7 @@ def has_optimizer(type_):
         if getattr(settings, 'DJANGO_STATIC_JSMIN', None):
             assert jsmin is not None, "jsmin not installed"
             return True
-        return slimmer is not None
+        return slimmer is not None or cssmin is not None
     else:
         raise ValueError("Invalid type %r" % type_)
 
