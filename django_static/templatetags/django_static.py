@@ -46,7 +46,7 @@ settings.DJANGO_STATIC_NAME_PREFIX = getattr(settings, 'DJANGO_STATIC_NAME_PREFI
 settings.DJANGO_STATIC_MEDIA_URL_ALWAYS = \
   getattr(settings, "DJANGO_STATIC_MEDIA_URL_ALWAYS", False)
 
-settings.MEDIA_ROOTS = getattr(settings, "DJANGO_STATIC_MEDIA_ROOTS",
+settings.DJANGO_STATIC_MEDIA_ROOTS = getattr(settings, "DJANGO_STATIC_MEDIA_ROOTS",
                                [settings.MEDIA_ROOT])
 
 if sys.platform == "win32":
@@ -201,7 +201,6 @@ class StaticFileNode(template.Node):
             if settings.DJANGO_STATIC_MEDIA_URL_ALWAYS:
                 return settings.DJANGO_STATIC_MEDIA_URL + filename
             return filename
-
         new_filename = _static_file([x.strip() for x in filename.split(';')],
                             optimize_if_possible=self.optimize_if_possible,
                             symlink_if_possible=self.symlink_if_possible)
@@ -419,7 +418,7 @@ def _static_file(filename,
                 filepath, path = _find_filepath_in_roots(each)
                 if not filepath:
                     raise OSError("Failed to find %s in %s" % (each,
-                        ",".join(settings.MEDIA_ROOTS)))
+                        ",".join(settings.DJANGO_STATIC_MEDIA_ROOTS)))
 
                 if extension:
                     if os.path.splitext(filepath)[1] != extension:
@@ -435,17 +434,20 @@ def _static_file(filename,
             # Set the root path of the combined files to the first entry
             # in the MEDIA_ROOTS list. This way django-static behaves a
             # little more predictible.
-            path = settings.MEDIA_ROOTS[0]
+            path = settings.DJANGO_STATIC_MEDIA_ROOTS[0]
             new_m_time = max(each_m_times)
 
         else:
             filepath, path = _find_filepath_in_roots(filename)
             if not filepath:
                 if warn_no_file:
-                    msg = "Can't find file %s in %s" % (filename, ",".join(settings.MEDIA_ROOTS))
+                    msg = "Can't find file %s in %s" % \
+                      (filename, ",".join(settings.DJANGO_STATIC_MEDIA_ROOTS))
                     warnings.warn(msg)
                 return file_proxy(wrap_up(filename),
-                                  **dict(fp_default_kwargs, filepath=filepath, notfound=True))
+                                  **dict(fp_default_kwargs,
+                                         filepath=filepath,
+                                         notfound=True))
 
             new_m_time = os.stat(filepath)[stat.ST_MTIME]
 
@@ -464,22 +466,23 @@ def _static_file(filename,
             new_filename = ''.join([apart[0],
                                 '.%s' % new_m_time,
                                 apart[1]])
-
-            fileinfo = (DJANGO_STATIC_NAME_PREFIX + new_filename, new_m_time)
+            fileinfo = (settings.DJANGO_STATIC_NAME_PREFIX + new_filename,
+                        new_m_time)
 
             _FILE_MAP[map_key] = fileinfo
             if old_new_filename:
-                old_new_filename = old_new_filename.replace(DJANGO_STATIC_NAME_PREFIX, '')
+                old_new_filename = old_new_filename.replace(
+                                      settings.DJANGO_STATIC_NAME_PREFIX, '')
                 old_new_filepath = _filename2filepath(old_new_filename,
-                        DJANGO_STATIC_SAVE_PREFIX or path)
+                        settings.DJANGO_STATIC_SAVE_PREFIX or path)
                 if not os.path.isdir(os.path.dirname(old_new_filepath)):
                     _mkdir(os.path.dirname(old_new_filepath))
 
                 if os.path.isfile(old_new_filepath):
                     os.remove(old_new_filepath)
-
     new_filepath = _filename2filepath(new_filename,
-            DJANGO_STATIC_SAVE_PREFIX or path)
+            settings.DJANGO_STATIC_SAVE_PREFIX or path)
+
     if not os.path.isdir(os.path.dirname(new_filepath)):
         _mkdir(os.path.dirname(new_filepath))
 
@@ -605,7 +608,7 @@ def _static_file(filename,
         #print "** STORING COPY:", new_filepath
         shutil.copyfile(filepath, new_filepath)
 
-    return file_proxy(wrap_up(DJANGO_STATIC_NAME_PREFIX + new_filename),
+    return file_proxy(wrap_up(settings.DJANGO_STATIC_NAME_PREFIX + new_filename),
                       **dict(fp_default_kwargs, new=True,
                              filepath=new_filepath, checked=True))
 
@@ -631,7 +634,7 @@ def _mkdir(newdir):
 
 def _find_filepath_in_roots(filename):
     """Look for filename in all MEDIA_ROOTS, and return the first one found."""
-    for root in settings.MEDIA_ROOTS:
+    for root in settings.DJANGO_STATIC_MEDIA_ROOTS:
         filepath = _filename2filepath(filename, root)
         if os.path.isfile(filepath):
             return filepath, root

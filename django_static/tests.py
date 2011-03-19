@@ -74,6 +74,7 @@ class TestDjangoStatic(TestCase):
         self.__added_filepaths.append(filepath)
 
     def setUp(self):
+        _django_static._FILE_MAP = {}
         self.__added_dirs = []
         self.__added_filepaths = []
         #if not os.path.isdir(TEST_MEDIA_ROOT):
@@ -318,8 +319,28 @@ class TestDjangoStatic(TestCase):
         self._assertProcessedFileExists(dir1, "img100.gif")
         self._assertProcessedFileExists(dir2, "img200.gif")
 
+
+    def test_static_in_multiple_media_roots_with_save_prefix(self):
+        """same as test_static_in_multiple_media_roots() but with a save
+        prefix. """
+
+        dir1 = settings.MEDIA_ROOT
+        dir2 = self._mkdir()
+        settings.DJANGO_STATIC_MEDIA_ROOTS = [ dir1, dir2 ]
+        dir3 = self._mkdir()
         settings.DJANGO_STATIC_SAVE_PREFIX = dir3
+
+        open(dir1 + '/img100.gif', 'w').write(_GIF_CONTENT)
+        open(dir2 + '/img200.gif', 'w').write(_GIF_CONTENT)
+
+        template_as_string = """{% load django_static %}
+        {% staticall %}
+        <img src="img100.gif">
+        <img src="img200.gif">
+        {% endstaticall %}
+        """
         template = Template(template_as_string)
+        context = Context()
         template.render(context).strip()
         self._assertProcessedFileExists(dir3, "img100.gif")
         self._assertProcessedFileExists(dir3, "img200.gif")
@@ -339,13 +360,9 @@ class TestDjangoStatic(TestCase):
         Then, set DJANGO_STATIC_SAVE_PREFIX and verify that the
         processed files are stored there.
         """
-
-
         dir1 = settings.MEDIA_ROOT
-        assert dir1.startswith(gettempdir())
         dir2 = self._mkdir()
-        settings.DJANGO_STATIC_MEDIA_ROOTS = [ dir1, dir2 ]
-        dir3 = self._mkdir()
+        settings.DJANGO_STATIC_MEDIA_ROOTS = [dir1, dir2]
 
         open(dir1 + '/test_A.js', 'w').write("var A=1;")
         open(dir2 + '/test_B.js', 'w').write("var B=1;")
@@ -360,8 +377,25 @@ class TestDjangoStatic(TestCase):
         # MEDIA_ROOTS unless DJANGO_STATIC_SAVE_PREFIX is set
         self._assertProcessedFileExists(dir1, "test_A_test_B.js")
 
+    def test_combined_files_in_multiple_media_roots_with_save_prefix(self):
+        """copy of test_combined_files_in_multiple_media_roots() but this time
+        with a save prefix"""
+        dir1 = settings.MEDIA_ROOT
+        dir2 = self._mkdir()
+        settings.DJANGO_STATIC_MEDIA_ROOTS = [dir1, dir2]
+        print
+
+        open(dir1 + '/test_A.js', 'w').write("var A=1;")
+        open(dir2 + '/test_B.js', 'w').write("var B=1;")
+
+        template_as_string = """{% load django_static %}
+        {% slimfile "/test_A.js;/test_B.js" %}
+        """
+        dir3 = self._mkdir()
         settings.DJANGO_STATIC_SAVE_PREFIX = dir3
+
         template = Template(template_as_string)
+        context = Context()
         template.render(context).strip()
         self._assertProcessedFileExists(dir3, "test_A_test_B.js")
 
@@ -1531,7 +1565,7 @@ class TestDjangoStatic(TestCase):
 
         code = 'body { font: big; }'
         new_code = optimize(code, 'css')
-        self.assertTrue(new_code.startswith('BODY'))
+        self.assertTrue(new_code.startswith('body'))
 
         new_code = optimize(code, 'css')
         del settings.DJANGO_STATIC_YUI_COMPRESSOR
