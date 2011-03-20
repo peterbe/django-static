@@ -43,6 +43,8 @@ settings.DJANGO_STATIC_USE_SYMLINK = getattr(settings, "DJANGO_STATIC_USE_SYMLIN
 settings.DJANGO_STATIC = getattr(settings, 'DJANGO_STATIC', False)
 settings.DJANGO_STATIC_SAVE_PREFIX = getattr(settings, 'DJANGO_STATIC_SAVE_PREFIX', '')
 settings.DJANGO_STATIC_NAME_PREFIX = getattr(settings, 'DJANGO_STATIC_NAME_PREFIX', '')
+settings.DJANGO_STATIC_MEDIA_URL = \
+  getattr(settings, "DJANGO_STATIC_MEDIA_URL", None)
 settings.DJANGO_STATIC_MEDIA_URL_ALWAYS = \
   getattr(settings, "DJANGO_STATIC_MEDIA_URL_ALWAYS", False)
 
@@ -739,13 +741,13 @@ def optimize(content, type_):
     else:
         raise ValueError("Invalid type %r" % type_)
 
+CLOSURE_COMMAND_TEMPLATE = "java -jar %(jarfile)s"
 def _run_closure_compiler(jscode):
-
-    cmd = "java -jar %s" % settings.DJANGO_STATIC_CLOSURE_COMPILER
+    cmd = CLOSURE_COMMAND_TEMPLATE % {'jarfile': settings.DJANGO_STATIC_CLOSURE_COMPILER}
     proc = Popen(cmd, shell=True, stdout=PIPE, stdin=PIPE, stderr=PIPE)
     try:
         (stdoutdata, stderrdata) = proc.communicate(jscode)
-    except OSError, msg:
+    except OSError, msg: # pragma: no cover
         # see comment on OSErrors inside _run_yui_compressor()
         stderrdata = \
           "OSError: %s. Try again by making a small change and reload" % msg
@@ -754,13 +756,15 @@ def _run_closure_compiler(jscode):
 
     return stdoutdata
 
+YUI_COMMAND_TEMPLATE = "java -jar %(jarfile)s --type=%(type)s"
 def _run_yui_compressor(code, type_):
-
-    cmd = "java -jar %s --type=%s" % (settings.DJANGO_STATIC_YUI_COMPRESSOR, type_)
+    cmd = YUI_COMMAND_TEMPLATE % \
+      {'jarfile': settings.DJANGO_STATIC_YUI_COMPRESSOR,
+       'type': type_}
     proc = Popen(cmd, shell=True, stdout=PIPE, stdin=PIPE, stderr=PIPE)
     try:
         (stdoutdata, stderrdata) = proc.communicate(code)
-    except OSError, msg:
+    except OSError, msg: # pragma: no cover
         # Sometimes, for unexplicable reasons, you get a Broken pipe when
         # running the popen instance. It's always non-deterministic problem
         # so it probably has something to do with concurrency or something

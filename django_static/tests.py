@@ -66,7 +66,8 @@ for name in [ "DEBUG",
               "DJANGO_STATIC_FILE_PROXY",
               "DJANGO_STATIC_USE_SYMLINK",
               "DJANGO_STATIC_CLOSURE_COMPILER",
-              "DJANGO_STATIC_MEDIA_ROOTS" ]:
+              "DJANGO_STATIC_MEDIA_ROOTS",
+              "DJANGO_STATIC_YUI_COMPRESSOR"]:
     _saved_settings.append((name, getattr(settings, name, _marker)))
 
 class TestDjangoStatic(TestCase):
@@ -99,6 +100,7 @@ class TestDjangoStatic(TestCase):
         settings.DJANGO_STATIC_USE_SYMLINK = True
         settings.DJANGO_STATIC_FILE_PROXY = None
         settings.DJANGO_STATIC_CLOSURE_COMPILER = None
+        settings.DJANGO_STATIC_YUI_COMPRESSOR = None
         #if hasattr(settings, "DJANGO_STATIC_MEDIA_ROOTS"):
         #    del settings.DJANGO_STATIC_MEDIA_ROOTS
         settings.DJANGO_STATIC_MEDIA_ROOTS = [settings.MEDIA_ROOT]
@@ -2122,6 +2124,74 @@ class TestDjangoStatic(TestCase):
         self.assertTrue('media="screen"' not in rendered)
         self.assertTrue('type="text/css"' not in rendered)
 
+    def test_slim_with_jsmin(self):
+        try:
+            import jsmin
+        except ImportError:
+            return
+
+        settings.DJANGO_STATIC = True
+        settings.DJANGO_STATIC_JSMIN = True
+        settings.DJANGO_STATIC_CLOSURE_COMPILER = None
+        settings.DJANGO_STATIC_YUI_COMPRESSOR = None
+
+        dummy_content = "var foo = function(aaa) { return aaa + 1; }"
+        open(settings.MEDIA_ROOT + '/test_A.js', 'w')\
+          .write(dummy_content)
+
+        template_as_string = """{% load django_static %}
+        {% slimfile "/test_A.js" %}
+        """
+        template = Template(template_as_string)
+        context = Context()
+        rendered = template.render(context).strip()
+        self.assertTrue(re.findall("/test_A\.\d+\.js", rendered))
+        content = open(settings.MEDIA_ROOT + rendered).read()
+        self.assertTrue(len(dummy_content) > len(content))
+
+    def test_fail_yui_compressor(self):
+        settings.DJANGO_STATIC = True
+        settings.DJANGO_STATIC_CLOSURE_COMPILER = None
+        settings.DJANGO_STATIC_YUI_COMPRESSOR = 'Something'
+
+        dummy_content = "var foo = function(aaa) { return aaa + 1; }"
+        open(settings.MEDIA_ROOT + '/test_A.js', 'w')\
+          .write(dummy_content)
+
+        template_as_string = """{% load django_static %}
+        {% slimfile "/test_A.js" %}
+        """
+        template = Template(template_as_string)
+        context = Context()
+        rendered = template.render(context).strip()
+        self.assertTrue(re.findall("/test_A\.\d+\.js", rendered))
+        content = open(settings.MEDIA_ROOT + rendered).read()
+        self.assertTrue('ERROR' in content)
+        self.assertTrue(content.count('/*') and content.count('*/'))
+        # find it not compressed
+        self.assertTrue(dummy_content in content)
+
+    def test_fail_closure_compressor(self):
+        settings.DJANGO_STATIC = True
+        settings.DJANGO_STATIC_CLOSURE_COMPILER = 'Something'
+        settings.DJANGO_STATIC_YUI_COMPRESSOR = None
+
+        dummy_content = "var foo = function(aaa) { return aaa + 1; }"
+        open(settings.MEDIA_ROOT + '/test_A.js', 'w')\
+          .write(dummy_content)
+
+        template_as_string = """{% load django_static %}
+        {% slimfile "/test_A.js" %}
+        """
+        template = Template(template_as_string)
+        context = Context()
+        rendered = template.render(context).strip()
+        self.assertTrue(re.findall("/test_A\.\d+\.js", rendered))
+        content = open(settings.MEDIA_ROOT + rendered).read()
+        self.assertTrue('ERROR' in content)
+        self.assertTrue(content.count('/*') and content.count('*/'))
+        # find it not compressed
+        self.assertTrue(dummy_content in content)
 
 
 # These have to be mutable so that we can record that they have been used as
