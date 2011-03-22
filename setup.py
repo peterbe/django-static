@@ -3,7 +3,7 @@ from distutils.core import setup
 
 
 # django-static doesn't have a version but this setup.py does
-VERSION = '1.5.3' # remember to match with django_static/__init__.py
+VERSION = '1.5.4' # remember to match with django_static/__init__.py
 
 import os
 long_description = open(os.path.join(os.path.dirname(__file__),
@@ -23,7 +23,6 @@ setup(
       license='BSD',
       packages=[
         'django_static',
-        'django_static.filters',
         'django_static.templatetags',
         ],
       classifiers=[
