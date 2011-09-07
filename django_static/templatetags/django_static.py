@@ -507,7 +507,7 @@ def _static_file(filename,
         # Then we expect to be able to modify the content and we will
         # definitely need to write a new file.
         if is_combined_files:
-            content = new_file_content.getvalue()
+            content = new_file_content.getvalue().decode('utf-8')
         else:
             #content = open(filepath).read()
             content = codecs.open(filepath, 'r', 'utf-8').read()
