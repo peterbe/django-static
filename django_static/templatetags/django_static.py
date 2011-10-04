@@ -93,6 +93,23 @@ def _load_file_proxy():
         return file_proxy_nothing
 file_proxy = _load_file_proxy()
 
+def _load_filename_generator():
+    try:
+        filename_generator = settings.DJANGO_STATIC_FILENAME_GENERATOR
+        if not filename_generator:
+            raise AttributeError
+        from django.utils.importlib import import_module
+        _module_name, _function_name = filename_generator.rsplit('.', 1)
+        file_generator_module = import_module(_module_name)
+        return getattr(file_generator_module, _function_name)
+    except AttributeError:
+        def old_filename_generator(apart, new_m_time):
+            new_filename = ''.join([apart[0], '.%s' % new_m_time, apart[1]])
+            return new_filename
+        return old_filename_generator
+
+_generate_filename = _load_filename_generator()
+
 # this defines what keyword arguments you can always expect to get from in the
 # file proxy function you've defined.
 fp_default_kwargs = dict(new=False, changed=False, checked=False, notfound=False)
@@ -469,9 +486,7 @@ def _static_file(filename,
         if not m_time:
             # We did not have the filename in the map OR it has changed
             apart = os.path.splitext(filename)
-            new_filename = ''.join([apart[0],
-                                '.%s' % new_m_time,
-                                apart[1]])
+            new_filename = _generate_filename(apart, new_m_time)
             fileinfo = (settings.DJANGO_STATIC_NAME_PREFIX + new_filename,
                         new_m_time)
 
