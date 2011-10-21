@@ -189,6 +189,24 @@ like this:
 
             return on_my_cdn.get(uri, uri)
 
+Advanced configuration with DJANGO_STATIC_FILENAME_GENERATOR
+----------------------------------------------------
+
+By default, django-static generates filenames for your combined files 
+using timestamps. You can use your own filename generating function
+by setting it in settings, like so:
+
+        DJANGO_STATIC_FILENAME_GENERATOR = 'myapp.filename_generator'
+
+This is expected to be the equivalent of this import statement:
+
+        from myapp import filename_generator
+
+Where `myapp` is a python module, and `filename_generator` is a regular
+python function. Here's the skeleton for that function:
+
+  def filename_generator(file_parts, new_m_time):
+      return ''.join([file_parts[0], '.%s' % new_m_time, file_parts[1]])
 
 Compression Filters
 ---------------------------
