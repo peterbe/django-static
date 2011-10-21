@@ -94,19 +94,16 @@ def _load_file_proxy():
 file_proxy = _load_file_proxy()
 
 def _load_filename_generator():
-    try:
-        filename_generator = settings.DJANGO_STATIC_FILENAME_GENERATOR
-        if not filename_generator:
-            raise AttributeError
+    filename_generator = getattr(settings, 'DJANGO_STATIC_FILENAME_GENERATOR', None)
+    if filename_generator:
         from django.utils.importlib import import_module
         _module_name, _function_name = filename_generator.rsplit('.', 1)
         file_generator_module = import_module(_module_name)
         return getattr(file_generator_module, _function_name)
-    except AttributeError:
-        def old_filename_generator(apart, new_m_time):
-            new_filename = ''.join([apart[0], '.%s' % new_m_time, apart[1]])
-            return new_filename
-        return old_filename_generator
+    def default_filename_generator(apart, new_m_time):
+        new_filename = ''.join([apart[0], '.%s' % new_m_time, apart[1]])
+        return new_filename
+    return default_filename_generator
 
 _generate_filename = _load_filename_generator()
 
