@@ -638,8 +638,9 @@ def _find_filepath_in_roots(filename):
         try:
             from django.contrib.staticfiles import finders
             absolute_path = finders.find(filename)
-            root, filepath = os.path.split(absolute_path)
-            return absolute_path, root
+            if absolute_path:
+                root, filepath = os.path.split(absolute_path)
+                return absolute_path, root
         except ImportError:
             pass
     return None, None
