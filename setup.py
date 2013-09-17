@@ -7,7 +7,7 @@ VERSION = '1.5.5' # remember to match with django_static/__init__.py
 
 import os
 long_description = open(os.path.join(os.path.dirname(__file__),
-                                     'README.md')).read()
+                                     'README.rst')).read()
 
 
 setup(
