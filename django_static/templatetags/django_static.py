@@ -375,7 +375,7 @@ class StaticFilesNode(template.Node):
 
         return code
 
-REFERRED_CSS_URLS_REGEX = re.compile('url\(((?!data:)[^\)]+)\)')
+REFERRED_CSS_URLS_REGEX = re.compile('''url\(((?!["']?data:)[^\)]+)\)''')
 REFERRED_CSS_URLLESS_IMPORTS_REGEX = re.compile('@import\s+[\'"]([^\'"]+)[\'"]')
 
 def _static_file(filename,
