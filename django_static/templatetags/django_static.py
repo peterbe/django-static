@@ -770,6 +770,11 @@ def _run_closure_compiler(jscode):
     proc = Popen(cmd, shell=True, stdout=PIPE, stdin=PIPE, stderr=PIPE)
     try:
         (stdoutdata, stderrdata) = proc.communicate(jscode)
+        if stderrdata:
+            # Check if there are real errors.
+            if re.search('[1-9]\d* error(s)', stderrdata) is None:
+                # Suppress the loud stderr output of closure compiler.
+                stderrdata = None
     except OSError, msg: # pragma: no cover
         # see comment on OSErrors inside _run_yui_compressor()
         stderrdata = \
