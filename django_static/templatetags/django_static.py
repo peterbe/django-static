@@ -43,6 +43,7 @@ settings.DJANGO_STATIC_USE_SYMLINK = getattr(settings, "DJANGO_STATIC_USE_SYMLIN
 settings.DJANGO_STATIC = getattr(settings, 'DJANGO_STATIC', False)
 settings.DJANGO_STATIC_SAVE_PREFIX = getattr(settings, 'DJANGO_STATIC_SAVE_PREFIX', '')
 settings.DJANGO_STATIC_NAME_PREFIX = getattr(settings, 'DJANGO_STATIC_NAME_PREFIX', '')
+settings.DJANGO_STATIC_NAME_MAX_LENGTH = getattr(settings, 'DJANGO_STATIC_NAME_MAX_LENGTH', 40)
 settings.DJANGO_STATIC_MEDIA_URL = \
   getattr(settings, "DJANGO_STATIC_MEDIA_URL", None)
 settings.DJANGO_STATIC_MEDIA_URL_ALWAYS = \
@@ -450,7 +451,7 @@ def _static_file(filename,
                 new_file_content.write(open(filepath, 'r').read().strip())
                 new_file_content.write('\n')
 
-            filename = _combine_filenames(filename)
+            filename = _combine_filenames(filename, settings.DJANGO_STATIC_NAME_MAX_LENGTH)
             # Set the root path of the combined files to the first entry
             # in the MEDIA_ROOTS list. This way django-static behaves a
             # little more predictible.
