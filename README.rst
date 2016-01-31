@@ -141,6 +141,17 @@ in ``DJANGO_STATIC_MEDIA_ROOTS``. The first match will be used.
 There is also a setting ``DJANGO_STATIC_USE_SYMLINK`` that can be set to
 ``False`` to force django_static to copy files instead of symlinking them.
 
+Advanced configuration with DJANGO_STATIC_USE_MANIFEST_FILE
+-----------------------------------------------------------
+
+If you enable, in your settings, a variable called
+``DJANGO_STATIC_USE_MANIFEST_FILE`` you can save filenames to
+manifest.json which is stored in the first match directory in 
+``DJANGO_STATIC_MEDIA_ROOTS``. This is for he usecase where we want to 
+manually upload css and javascript files to CDN. On production, where DEBUG=False,
+django-static will pick the filenames from manifest.json file instead of 
+doing all the calculations.
+
 
 Advanced configuration with DJANGO_STATIC_FILE_PROXY
 ----------------------------------------------------
