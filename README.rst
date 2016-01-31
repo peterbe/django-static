@@ -147,7 +147,7 @@ Advanced configuration with DJANGO_STATIC_USE_MANIFEST_FILE
 If you enable, in your settings, a variable called
 ``DJANGO_STATIC_USE_MANIFEST_FILE`` you can save filenames to
 manifest.json which is stored in the first match directory in 
-``DJANGO_STATIC_MEDIA_ROOTS``. This is for he usecase where we want to 
+``DJANGO_STATIC_MEDIA_ROOTS``. This is for the usecase where we want to 
 manually upload css and javascript files to CDN. On production, where DEBUG=False,
 django-static will pick the filenames from manifest.json file instead of 
 doing all the calculations.
