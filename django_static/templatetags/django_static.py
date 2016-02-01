@@ -9,6 +9,8 @@ from collections import defaultdict
 from cStringIO import StringIO
 from subprocess import Popen, PIPE
 import warnings
+import fcntl
+import json
 
 # django
 from django import template
@@ -51,6 +53,8 @@ settings.DJANGO_STATIC_MEDIA_URL_ALWAYS = \
 
 settings.DJANGO_STATIC_MEDIA_ROOTS = getattr(settings, "DJANGO_STATIC_MEDIA_ROOTS",
                                [settings.MEDIA_ROOT])
+settings.DJANGO_STATIC_USE_MANIFEST_FILE = \
+  getattr(settings, "DJANGO_STATIC_USE_MANIFEST_FILE", False)
 
 if sys.platform == "win32":
     _CAN_SYMLINK = False
@@ -58,7 +62,11 @@ else:
     _CAN_SYMLINK = settings.DJANGO_STATIC_USE_SYMLINK
 
 # Wheree the mapping filename -> annotated_filename is kept
-_FILE_MAP = {}
+
+if settings.DJANGO_STATIC_USE_MANIFEST_FILE:
+    _MANIFEST_PATH = os.path.join(settings.DJANGO_STATIC_MEDIA_ROOTS[0], 'manifest.json')
+else:
+    _FILE_MAP = {}
 
 ## These two methods are put here if someone wants to access the django_static
 ## functionality from code rather than from a django template
@@ -407,7 +415,11 @@ def _static_file(filename,
     else:
         map_key = filename
 
-    new_filename, m_time = _FILE_MAP.get(map_key, (None, None))
+    if settings.DJANGO_STATIC_USE_MANIFEST_FILE:
+        new_filename, m_time = _get(_MANIFEST_PATH, map_key)
+    else:
+        new_filename, m_time = _FILE_MAP.get(map_key, (None, None))
+
 
     # we might already have done a conversion but the question is
     # if the file has changed. This we only want
@@ -488,7 +500,13 @@ def _static_file(filename,
             fileinfo = (settings.DJANGO_STATIC_NAME_PREFIX + new_filename,
                         new_m_time)
 
-            _FILE_MAP[map_key] = fileinfo
+
+            if settings.DJANGO_STATIC_USE_MANIFEST_FILE:
+                _set(_MANIFEST_PATH, map_key, fileinfo)
+            else:
+                _FILE_MAP[map_key] = fileinfo
+
+
             if old_new_filename:
                 old_new_filename = old_new_filename.replace(
                                       settings.DJANGO_STATIC_NAME_PREFIX, '')
@@ -814,3 +832,38 @@ def _run_cssmin(code):
 def _run_jsmin(code):
     output = jsmin.jsmin(code)
     return output
+
+def _get(file, key):
+    with _touchopen(file, "r") as f:
+        previous_value = f.read()
+        f.close()
+        if not previous_value:
+            data = json.loads('{}')
+        else:
+            data = json.loads(previous_value.decode('utf8'))
+    return data.get(key, (None, None))
+
+def _set(file, key, value):
+    with _touchopen(file, "r+") as f:
+        # Acquire a non-blocking exclusive lock
+        fcntl.lockf(f, fcntl.LOCK_EX)
+
+        # Read a previous value if present
+        previous_value = f.read()
+        if not previous_value:
+            data = json.loads('{}')
+        else:
+            data = json.loads(previous_value.decode('utf8'))
+
+        data[key] = value
+
+        # Write the new value and truncate
+        f.seek(0)
+        f.write(json.dumps(data, indent=4).encode('utf8'))
+        f.truncate()
+        f.close()
+
+def _touchopen(filename, *args, **kwargs):
+    fd = os.open(filename, os.O_RDWR | os.O_CREAT)
+
+    return os.fdopen(fd, *args, **kwargs)
