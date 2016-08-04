@@ -692,9 +692,9 @@ def _filename2filepath(filename, media_root):
 
 
 
-def _combine_filenames(filenames, max_length=40):
+def default_combine_filenames_generator(filenames, max_length=40):
     """Return a new filename to use as the combined file name for a
-    bunch files.
+    bunch of files.
     A precondition is that they all have the same file extension
 
     Given that the list of files can have different paths, we aim to use the
@@ -743,6 +743,18 @@ def _combine_filenames(filenames, max_length=40):
     new_filename += extension
 
     return os.path.join(path, new_filename)
+
+
+def _load_combine_filenames_generator():
+    combine_filenames_generator = getattr(settings, 'DJANGO_STATIC_COMBINE_FILENAMES_GENERATOR', None)
+    if combine_filenames_generator:
+        from django.utils.importlib import import_module
+        _module_name, _function_name = combine_filenames_generator.rsplit('.', 1)
+        combine_filenames_generator_module = import_module(_module_name)
+        return getattr(combine_filenames_generator_module, _function_name)
+    return default_combine_filenames_generator
+
+_combine_filenames = _load_combine_filenames_generator()
 
 
 CSS = 'css'
