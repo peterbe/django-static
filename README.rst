@@ -226,8 +226,8 @@ Advanced configuration with DJANGO_STATIC_COMBINE_FILENAMES_GENERATOR
 ---------------------------------------------------------------------
 
 By default, django-static generates filenames for your combined files 
-using timestamps. You can use your own filename generating function
-by setting it in settings, like so::
+by concatenating the file names. You can also use your own filename 
+generating function by setting it in settings, like so::
 
         DJANGO_STATIC_COMBINE_FILENAMES_GENERATOR = 'myapp.combine_filenames'
 
@@ -238,24 +238,6 @@ This is expected to be the equivalent of this import statement::
 Where ``myapp`` is a python module, and ``combine_filenames`` is a regular
 python function. Here's the skeleton for that function::
 
-  """Return a new filename to use as the combined file name for a
-  bunch of files.
-  A precondition is that they all have the same file extension
-
-  Given that the list of files can have different paths, we aim to use the
-  most common path.
-
-  Example:
-    /somewhere/else/foo.js
-    /somewhere/bar.js
-    /somewhere/different/too/foobar.js
-  The result will be
-    /somewhere/foo_bar_foobar.js
-
-  Another thing to note, if the filenames have timestamps in them, combine
-  them all and use the highest timestamp.
-
-  """
   path = None
   names = []
   extension = None
