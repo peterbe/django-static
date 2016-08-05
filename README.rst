@@ -29,7 +29,7 @@ The five template tags it enables are the following:
 
 2. ``slimfile`` Works the same as ``staticfile`` but instead of copying
    the file as a symlink it actually rewrites the file and compresses
-   it through `slimmer <http://pypi.python.org/pypi/slimmer/>`__. This of
+   it through `slimmer <https://pypi.python.org/pypi/slimmer/>`__. This of
    course only works for ``.js`` and ``.css`` files but it works
    wonderfully fast and is careful enough to not break things. The
    cool thing about doing this for ``.css`` files it finds all relative
@@ -131,7 +131,7 @@ And you get this result::
         <img src="//static.example.com/foo.1247785534.png"/>
 
 Right out of the box, ``DJANGO_STATIC_MEDIA_URL`` will not be active
-if ``DJANGO_STATIC = False``. If you want it to be, set 
+if ``DJANGO_STATIC = False``. If you want it to be, set
 ``DJANGO_STATIC_MEDIA_URL_ALWAYS = True``.
 
 By default django_static will look for source files in ``MEDIA_ROOT``,
@@ -146,10 +146,10 @@ Advanced configuration with DJANGO_STATIC_USE_MANIFEST_FILE
 
 If you enable, in your settings, a variable called
 ``DJANGO_STATIC_USE_MANIFEST_FILE`` you can save filenames to
-manifest.json which is stored in the first match directory in 
-``DJANGO_STATIC_MEDIA_ROOTS``. This is for the usecase where we want to 
+manifest.json which is stored in the first match directory in
+``DJANGO_STATIC_MEDIA_ROOTS``. This is for the usecase where we want to
 manually upload css and javascript files to CDN. On production, where DEBUG=False,
-django-static will pick the filenames from manifest.json file instead of 
+django-static will pick the filenames from manifest.json file instead of
 doing all the calculations.
 
 
@@ -205,7 +205,7 @@ like this::
 Advanced configuration with DJANGO_STATIC_FILENAME_GENERATOR
 ------------------------------------------------------------
 
-By default, django-static generates filenames for your combined files 
+By default, django-static generates filenames for your combined files
 using timestamps. You can use your own filename generating function
 by setting it in settings, like so::
 
@@ -225,8 +225,8 @@ python function. Here's the skeleton for that function::
 Advanced configuration with DJANGO_STATIC_COMBINE_FILENAMES_GENERATOR
 ---------------------------------------------------------------------
 
-By default, django-static generates filenames for your combined files 
-by concatenating the file names. You can also use your own filename 
+By default, django-static generates filenames for your combined files
+by concatenating the file names. You can also use your own filename
 generating function by setting it in settings, like so::
 
         DJANGO_STATIC_COMBINE_FILENAMES_GENERATOR = 'myapp.combine_filenames'
@@ -294,7 +294,7 @@ Using Google Closure Compiler
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If you want to use the `Google Closure
-Compiler <http://code.google.com/closure/compiler/>`__ to optimize your
+Compiler <https://code.google.com/closure/compiler/>`__ to optimize your
 Javascript files you first have to download the compiler.jar file and
 make sure your systam can run java. Suppose you download it in
 /usr/local/bin, the set this variable in your settings.py file::
@@ -309,7 +309,7 @@ comment block.
 Using the YUI Compressor
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-The `YUI Compressor <http://developer.yahoo.com/yui/compressor/>`__ is
+The `YUI Compressor <https://developer.yahoo.com/yui/compressor/>`__ is
 both a Javascript and CSS compressor which requires a java runtime.
 Just like the Google Closure Compiler, you need to download the jar
 file and then set something like this in your settings.py::
@@ -323,7 +323,7 @@ compression.
 Using the slimmer
 ~~~~~~~~~~~~~~~~~
 
-`slimmer <http://pypi.python.org/pypi/slimmer/>`__ is an all python
+`slimmer <https://pypi.python.org/pypi/slimmer/>`__ is an all python
 package that is capable of whitespace optimizing CSS, HTML, XHTML and
 Javascript. It's faster than the YUI Compressor and Google Closure but
 that speed difference is due to the start-stop time of bridging the
@@ -333,5 +333,4 @@ How to hook this up with nginx
 ------------------------------
 
 Read `this blog entry on
-peterbe.com <http://www.peterbe.com/plog/serve-your-static-stuff-in-django-with-nginx>`__
-
+peterbe.com <https://www.peterbe.com/plog/serve-your-static-stuff-in-django-with-nginx>`__
