@@ -221,6 +221,57 @@ python function. Here's the skeleton for that function::
   def filename_generator(file_parts, new_m_time):
       return ''.join([file_parts[0], '.%s' % new_m_time, file_parts[1]])
 
+
+Advanced configuration with DJANGO_STATIC_COMBINE_FILENAMES_GENERATOR
+---------------------------------------------------------------------
+
+By default, django-static generates filenames for your combined files 
+by concatenating the file names. You can also use your own filename 
+generating function by setting it in settings, like so::
+
+        DJANGO_STATIC_COMBINE_FILENAMES_GENERATOR = 'myapp.combine_filenames'
+
+This is expected to be the equivalent of this import statement::
+
+        from myapp import combine_filenames
+
+Where ``myapp`` is a python module, and ``combine_filenames`` is a regular
+python function. Here's the skeleton for that function::
+
+  path = None
+  names = []
+  extension = None
+  timestamps = []
+  for filename in filenames:
+      name = os.path.basename(filename)
+      if not extension:
+          extension = os.path.splitext(name)[1]
+      elif os.path.splitext(name)[1] != extension:
+          raise ValueError("Can't combine multiple file extensions")
+
+      for each in re.finditer('\.\d{10}\.', name):
+          timestamps.append(int(each.group().replace('.','')))
+          name = name.replace(each.group(), '.')
+      name = os.path.splitext(name)[0]
+      names.append(name)
+
+      if path is None:
+          path = os.path.dirname(filename)
+      else:
+          if len(os.path.dirname(filename)) < len(path):
+              path = os.path.dirname(filename)
+
+
+  new_filename = '_'.join(names)
+  if timestamps:
+      new_filename += ".%s" % max(timestamps)
+
+  new_filename = new_filename[:max_length]
+  new_filename += extension
+
+  return os.path.join(path, new_filename)
+
+
 Compression Filters
 -------------------
 
